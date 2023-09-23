@@ -7,14 +7,14 @@
 
 #include "stddef.h"
 
-struct Field {
+struct TableField {
     char *name;
     void *data;
 };
 
 struct Row {
     size_t fields_length;
-    struct Field fields[];
+    struct TableField fields[];
 };
 
 struct SelectResult {
@@ -23,12 +23,14 @@ struct SelectResult {
 };
 
 struct DbInfo {
-    int fd;
+    int file_descriptor;
+    size_t file_size;
     void *file_data_pointer;
 };
 
 struct DbInfo init_db_file(const char *filename);
-void close_file(int file_descriptor);
+
+int close_db_file(struct DbInfo db_info);
 
 struct SelectResult db_operation_select(const char *table_name);
 

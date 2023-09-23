@@ -2,9 +2,9 @@
 // Created by d.rusinov on 23.09.2023.
 //
 
-#include "../include/db.h"
+#include "../src/db/file/file_internal.h"
 
 int main() {
-    struct DbInfo db_info = init_db_file("/Users/d.rusinov/Desktop/itmo/llp/my_db5");
-    close_file(db_info.fd);
+    int fd = open_file("/home/ruskaof/Desktop/my_db");
+    close_file(fd);
 }
