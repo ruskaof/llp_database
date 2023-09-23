@@ -2,7 +2,6 @@
 // Created by ruskaof on 23/09/23.
 //
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>

@@ -15,15 +15,15 @@ enum TableFieldDataType {
     FIELD_DATA_TYPE_BOOL,
 };
 
-struct TableField {
-    char *name;
+struct TableFieldSchema {
+    char *row_name;
     enum TableFieldDataType data_type;
     size_t data_size;
 };
 
 struct TableSchema {
     size_t fields_length;
-    struct TableField fields[];
+    struct TableFieldSchema fields[];
 };
 
 #endif //LLP_DATABASE_TABLE_SCHEMA_H
