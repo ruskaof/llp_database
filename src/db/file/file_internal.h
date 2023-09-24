@@ -21,10 +21,6 @@ int mmap_file(int fd, size_t file_size, void **file_data_pointer);
 
 int delete_file(const char *filename);
 
-struct FileDbInfo {
-    int fd;
-    size_t file_size;
-    void *file_data_pointer;
-};
+size_t get_file_size(int fd);
 
 #endif //LLP_DATABASE_FILE_INTERNAL_H

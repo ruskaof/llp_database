@@ -36,12 +36,12 @@ int change_file_size(int fd, long new_size) {
     int result = ftruncate(fd, new_size);
 
     if (result != 0) {
-        logger(LL_ERROR, __func__, "Could not change file size with descriptor %d to %ld.", fd,
+        logger(LL_ERROR, __func__, "Could not change file buckets_count with descriptor %d to %ld.", fd,
                new_size);
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Changed file size with descriptor %d to %ld.", fd, new_size);
+    logger(LL_DEBUG, __func__, "Changed file buckets_count with descriptor %d to %ld.", fd, new_size);
     return 0;
 }
 
@@ -61,12 +61,12 @@ int munmap_file(void *file_data_pointer, size_t file_size) {
     int result = munmap(file_data_pointer, file_size);
 
     if (result != 0) {
-        logger(LL_ERROR, __func__, "Could not unmap file with pointer %p and size %ld.",
+        logger(LL_ERROR, __func__, "Could not unmap file with pointer %p and buckets_count %ld.",
                file_data_pointer, file_size);
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Unmapped file with pointer %p and size %ld.", file_data_pointer,
+    logger(LL_DEBUG, __func__, "Unmapped file with pointer %p and buckets_count %ld.", file_data_pointer,
            file_size);
     return 0;
 }
@@ -93,4 +93,16 @@ int delete_file(const char *filename) {
 
     logger(LL_DEBUG, __func__, "Deleted file with name %s.", filename);
     return 0;
+}
+
+size_t get_file_size(int fd) {
+    size_t file_size = lseek(fd, 0, SEEK_END);
+
+    if (file_size == -1) {
+        logger(LL_ERROR, __func__, "Could not get file buckets_count with descriptor %d.", fd);
+        return -1;
+    }
+
+    logger(LL_DEBUG, __func__, "Got file buckets_count with descriptor %d.", fd);
+    return (size_t) file_size;
 }
