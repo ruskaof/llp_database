@@ -1,12 +1,12 @@
 //
-// Created by ruskaof on 23/09/23.
+// Created by ruskaof on 1/10/23.
 //
 
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "file_internal.h"
-#include "../../utils/logging.h"
+#include "file.h"
+#include "../utils/logging.h"
 
 int open_file(const char *filename) {
     int fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -99,10 +99,10 @@ size_t get_file_size(int fd) {
     size_t file_size = lseek(fd, 0, SEEK_END);
 
     if (file_size == -1) {
-        logger(LL_ERROR, __func__, "Could not get file buckets_count with descriptor %d.", fd);
+        logger(LL_ERROR, __func__, "Could not get file size with descriptor %d.", fd);
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Got file buckets_count with descriptor %d.", fd);
+    logger(LL_DEBUG, __func__, "Got file size with descriptor %d.", fd);
     return (size_t) file_size;
 }

@@ -1,9 +1,9 @@
 //
-// Created by ruskaof on 23/09/23.
+// Created by ruskaof on 1/10/23.
 //
 
-#ifndef LLP_DATABASE_FILE_INTERNAL_H
-#define LLP_DATABASE_FILE_INTERNAL_H
+#ifndef LLP_DATABASE_FILE_H
+#define LLP_DATABASE_FILE_H
 
 #include <stdlib.h>
 
@@ -23,4 +23,4 @@ int delete_file(const char *filename);
 
 size_t get_file_size(int fd);
 
-#endif //LLP_DATABASE_FILE_INTERNAL_H
+#endif //LLP_DATABASE_FILE_H
