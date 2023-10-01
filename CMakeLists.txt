@@ -8,12 +8,15 @@ add_library(llp_database
         src/utils/logging.h
         src/db/file.h
         src/db/file.c
-        src/db/schema.c
-        src/db/schema.h
+        src/db/table_metadata.c
+        src/db/table_metadata.h
         src/db/page.c
         src/db/page.h
-        src/db/operations.c
-        include/operations.h
+        src/db/data_operations.c
+        include/data_operations.h
+        include/table.h
+        src/db/table_operations.cpp
+        src/db/table_operations.h
 )
 
 add_executable(test test/test.c
@@ -21,8 +24,8 @@ add_executable(test test/test.c
         src/utils/logging.h
         src/db/file.h
         src/db/file.c
-        src/db/schema.c
-        src/db/schema.h
+        src/db/table_metadata.c
+        src/db/table_metadata.h
         src/db/page.c
         src/db/page.h
 )

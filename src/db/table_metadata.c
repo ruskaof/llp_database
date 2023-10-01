@@ -2,7 +2,7 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#include "schema.h"
+#include "table_metadata.h"
 #include "../utils/logging.h"
 #include "page.h"
 

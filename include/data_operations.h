@@ -2,10 +2,10 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#ifndef LLP_DATABASE_OPERATIONS_H
-#define LLP_DATABASE_OPERATIONS_H
+#ifndef LLP_DATABASE_DATA_OPERATIONS_H
+#define LLP_DATABASE_DATA_OPERATIONS_H
 
-#include "../src/db/schema.h"
+#include "../src/db/table_metadata.h"
 
 struct SelectResultIterator {
     struct TableRow *current_row;
@@ -53,4 +53,4 @@ int operation_delete(char *table_name, struct OperationPredicateParameters *para
  */
 int operation_update(char *table_name, struct OperationPredicateParameters *parameters);
 
-#endif //LLP_DATABASE_OPERATIONS_H
+#endif //LLP_DATABASE_DATA_OPERATIONS_H

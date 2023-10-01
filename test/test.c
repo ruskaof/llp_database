@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/db/schema.h"
+#include "../src/db/table_metadata.h"
 #include "../src/utils/logging.h"
 #include "../src/db/file.h"
 
