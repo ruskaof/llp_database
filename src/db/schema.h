@@ -5,7 +5,7 @@
 #ifndef LLP_DATABASE_SCHEMA_H
 #define LLP_DATABASE_SCHEMA_H
 
-#include "../src/db/file.h"
+#include "file.h"
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -30,7 +30,7 @@ struct TableField {
 
 struct TableRow {
     size_t fields_count;
-    struct TableField *fields;
+    struct TableField fields[];
 };
 
 struct TableColumn {
@@ -38,18 +38,17 @@ struct TableColumn {
     enum TableDatatype type;
 };
 
-struct __attribute__((__packed__)) TableSchema {
+struct TableMetadata {
     TableSchemaName name;
+    off_t first_page_offset;
     size_t columns_count;
     struct TableColumn columns[];
 };
 
-size_t get_table_schema_size(const struct TableSchema *table_schema);
-
-int insert_table_schema_to_file(int fd, const struct TableSchema *table_schema);
+int insert_table_metadata_to_file(int fd, const struct TableMetadata *table_schema);
 
 int delete_table_schema(int fd, const char *name);
 
-struct TableSchema *get_table_schema_from_file(int fd, const char *name);
+struct TableMetadata *get_table_schema_from_file(int fd, const char *name);
 
 #endif //LLP_DATABASE_SCHEMA_H

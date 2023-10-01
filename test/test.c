@@ -5,11 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../include/schema.h"
+#include "../src/db/schema.h"
 #include "../src/utils/logging.h"
 #include "../src/db/file.h"
 
-void print_table_schema(struct TableSchema *table_schema) {
+void print_table_schema(struct TableMetadata *table_schema) {
     if (table_schema == NULL) {
         printf("Table schema is NULL\n");
         return;
@@ -28,7 +28,7 @@ int main() {
     int fd = open_file("/home/ruskaof/Desktop/testdb");
 
 
-    struct TableSchema *table_schema = malloc(sizeof(struct TableSchema) + 2 * sizeof(struct TableColumn));
+    struct TableMetadata *table_schema = malloc(sizeof(struct TableMetadata) + 2 * sizeof(struct TableColumn));
 
     strcpy(table_schema->name, "test_table4");
     table_schema->columns_count = 2;
@@ -37,9 +37,9 @@ int main() {
     table_schema->columns[1].type = TD_STRING;
     strcpy(table_schema->columns[1].name, "name4");
 
-    insert_table_schema_to_file(fd, table_schema);
+    insert_table_metadata_to_file(fd, table_schema);
 
-    struct TableSchema *table_schema_from_file = get_table_schema_from_file(fd, "test_table4");
+    struct TableMetadata *table_schema_from_file = get_table_schema_from_file(fd, "test_table4");
     print_table_schema(table_schema_from_file);
 
 
@@ -51,7 +51,7 @@ int main() {
     table_schema->columns[1].type = TD_STRING;
     strcpy(table_schema->columns[1].name, "name5");
 
-    insert_table_schema_to_file(fd, table_schema);
+    insert_table_metadata_to_file(fd, table_schema);
 
     table_schema_from_file = get_table_schema_from_file(fd, "test_table5");
     print_table_schema(table_schema_from_file);

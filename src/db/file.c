@@ -2,11 +2,13 @@
 // Created by ruskaof on 1/10/23.
 //
 
+#include "file.h"
+#include "../utils/logging.h"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "file.h"
-#include "../utils/logging.h"
+#include <stdint.h>
 
 int open_file(const char *filename) {
     int fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -71,15 +73,17 @@ int munmap_file(void *file_data_pointer, size_t file_size) {
     return 0;
 }
 
-int mmap_file(int fd, size_t file_size, void **file_data_pointer) {
-    *file_data_pointer = mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+int mmap_file(int fd, void **file_data_pointer, off_t offset, size_t size) {
+    *file_data_pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
 
     if (*file_data_pointer == MAP_FAILED) {
-        logger(LL_ERROR, __func__, "Could not map file with descriptor %d.", fd);
+        logger(LL_ERROR, __func__, "Could not map file with descriptor %d, offset %ld and buckets_count %ld.", fd,
+               offset, size);
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Mapped file with descriptor %d.", fd);
+    logger(LL_DEBUG, __func__, "Mapped file with descriptor %d, offset %ld and buckets_count %ld.", fd, offset,
+           size);
     return 0;
 }
 

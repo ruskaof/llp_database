@@ -9,9 +9,11 @@ add_library(llp_database
         src/db/file.h
         src/db/file.c
         src/db/schema.c
-        include/schema.h
+        src/db/schema.h
         src/db/page.c
         src/db/page.h
+        src/db/operations.c
+        include/operations.h
 )
 
 add_executable(test test/test.c
@@ -20,7 +22,7 @@ add_executable(test test/test.c
         src/db/file.h
         src/db/file.c
         src/db/schema.c
-        include/schema.h
+        src/db/schema.h
         src/db/page.c
         src/db/page.h
 )

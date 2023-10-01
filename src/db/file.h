@@ -6,6 +6,7 @@
 #define LLP_DATABASE_FILE_H
 
 #include <stdlib.h>
+#include <stdint.h>
 
 int open_file(const char *filename);
 
@@ -17,7 +18,7 @@ int sync_file(int fd);
 
 int munmap_file(void *file_data_pointer, size_t file_size);
 
-int mmap_file(int fd, size_t file_size, void **file_data_pointer);
+int mmap_file(int fd, void **file_data_pointer, off_t offset, size_t size);
 
 int delete_file(const char *filename);
 

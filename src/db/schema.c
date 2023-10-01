@@ -2,9 +2,8 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#include "../../include/schema.h"
+#include "schema.h"
 #include "../utils/logging.h"
-#include "file.h"
 #include "page.h"
 
 #include <stdbool.h>
@@ -13,46 +12,46 @@
 #define TABLE_SCHEMA_TO_DELETE_NOT_FOUND "Table schema to delete not found."
 #define TABLE_SCHEMA_TO_GET_NOT_FOUND "Table schema to get not found."
 
-struct TableSchemaNode {
+struct TableMetadataNode {
     bool is_last;
-    struct TableSchema table_schema;
+    struct TableMetadata table_metadata;
 };
 
-size_t get_table_schema_size(const struct TableSchema *table_schema) {
-    size_t size = sizeof(struct TableSchema) + table_schema->columns_count * sizeof(struct TableColumn);
+size_t get_table_metadata_size(const struct TableMetadata *table_schema) {
+    size_t size = sizeof(struct TableMetadata) + table_schema->columns_count * sizeof(struct TableColumn);
     return size;
 }
 
-size_t get_table_schema_node_size(const struct TableSchemaNode *table_schema_node) {
-    size_t size = sizeof(struct TableSchemaNode) + get_table_schema_size(&table_schema_node->table_schema);
+size_t get_table_metadata_node_size(const struct TableMetadataNode *table_schema_node) {
+    size_t size = sizeof(struct TableMetadataNode) + get_table_metadata_size(&table_schema_node->table_metadata);
     return size;
 }
 
-struct TableSchemaNode *get_next_table_schema_node(struct TableSchemaNode *table_schema_node) {
-    if (table_schema_node->is_last) {
+struct TableMetadataNode *get_next_table_schema_node(struct TableMetadataNode *table_metadata_node) {
+    if (table_metadata_node->is_last) {
         return NULL;
     }
 
-    return (struct TableSchemaNode *) (((char *) table_schema_node) + get_table_schema_node_size(table_schema_node));
+    return (struct TableMetadataNode *) (((char *) table_metadata_node) +
+                                         get_table_metadata_node_size(table_metadata_node));
 }
 
-struct TableSchemaNode *get_last_table_schema_node(struct TableSchemaNode *table_schema_node) {
-    if (table_schema_node->is_last) {
-        return table_schema_node;
+struct TableMetadataNode *get_last_table_metadata_node(struct TableMetadataNode *table_metadata_node) {
+    if (table_metadata_node->is_last) {
+        return table_metadata_node;
     }
 
-    while (table_schema_node->is_last != true) {
-        table_schema_node = get_next_table_schema_node(table_schema_node);
+    while (table_metadata_node->is_last != true) {
+        table_metadata_node = get_next_table_schema_node(table_metadata_node);
     }
 
-    return table_schema_node;
+    return table_metadata_node;
 }
 
-int insert_table_schema_to_file(int fd, const struct TableSchema *table_schema) {
+int insert_table_metadata_to_file(int fd, const struct TableMetadata *table_schema) {
     logger(LL_DEBUG, __func__, "Inserting table schema %s.", table_schema->name);
 
     size_t file_size = get_file_size(fd);
-    bool file_empty = (file_size == 0);
 
     if (file_size == 0) {
         logger(LL_DEBUG, __func__, "File is empty. Inserting table schema %s.", table_schema->name);
@@ -62,29 +61,33 @@ int insert_table_schema_to_file(int fd, const struct TableSchema *table_schema) 
     }
 
     void *file_data_pointer;
-    if (mmap_file(fd, file_size, &file_data_pointer) != 0) {
+    if (mmap_file(fd, &file_data_pointer, TABLE_SCHEMA_PAGE_OFFSET, TABLE_SCHEMA_PAGE_SIZE) != 0) {
         return -1;
     }
 
-    struct TableSchemaNode *table_schema_first_node = (struct TableSchemaNode *) file_data_pointer;
+    struct PageHeader *page_header = (struct PageHeader *) file_data_pointer;
+    struct TableMetadataNode *table_schema_first_node = (struct TableMetadataNode *) (file_data_pointer +
+                                                                                      sizeof(struct PageHeader));
 
-    if (file_empty) {
+    if (page_header->has_elements != true) {
         table_schema_first_node->is_last = true;
-        memcpy(&table_schema_first_node->table_schema, table_schema, get_table_schema_size(table_schema));
+        memcpy(&table_schema_first_node->table_metadata, table_schema, get_table_metadata_size(table_schema));
     } else {
-        struct TableSchemaNode *table_schema_node = table_schema_first_node;
+        struct TableMetadataNode *table_schema_node = table_schema_first_node;
 
         while (table_schema_node->is_last != true) {
             table_schema_node = get_next_table_schema_node(table_schema_node);
         }
 
-        struct TableSchemaNode *new_table_schema_node = (struct TableSchemaNode *) (((char *) table_schema_node) +
-                                                                                    get_table_schema_node_size(
-                                                                                        table_schema_node));
+        struct TableMetadataNode *new_table_schema_node = (struct TableMetadataNode *) (((char *) table_schema_node) +
+                                                                                        get_table_metadata_node_size(
+                                                                                            table_schema_node));
         new_table_schema_node->is_last = true;
-        memcpy(&new_table_schema_node->table_schema, table_schema, get_table_schema_size(table_schema));
+        memcpy(&new_table_schema_node->table_metadata, table_schema, get_table_metadata_size(table_schema));
         table_schema_node->is_last = false;
     }
+
+    page_header->has_elements = true;
 
     if (sync_file(fd) != 0) {
         return -1;
@@ -97,7 +100,7 @@ int insert_table_schema_to_file(int fd, const struct TableSchema *table_schema) 
     return 0;
 }
 
-struct TableSchema *get_table_schema_from_file(int fd, const char *name) {
+struct TableMetadata *get_table_schema_from_file(int fd, const char *name) {
     logger(LL_DEBUG, __func__, "Getting table schema %s.", name);
 
     size_t file_size = get_file_size(fd);
@@ -108,19 +111,31 @@ struct TableSchema *get_table_schema_from_file(int fd, const char *name) {
     }
 
     void *file_data_pointer;
-    if (mmap_file(fd, file_size, &file_data_pointer) != 0) {
+    if (mmap_file(fd, &file_data_pointer, TABLE_SCHEMA_PAGE_OFFSET, TABLE_SCHEMA_PAGE_SIZE) != 0) {
         return NULL;
     }
 
-    struct TableSchemaNode *table_schema_first_node = (struct TableSchemaNode *) file_data_pointer;
+    struct PageHeader *page_header = (struct PageHeader *) file_data_pointer;
+    struct TableMetadataNode *table_schema_first_node = (struct TableMetadataNode *) (file_data_pointer +
+                                                                                      sizeof(struct PageHeader));
 
-    struct TableSchemaNode *table_schema_node = table_schema_first_node;
+    if (page_header->has_elements != true) {
+        logger(LL_WARN, __func__, TABLE_SCHEMA_TO_GET_NOT_FOUND);
+
+        if (munmap_file(file_data_pointer, file_size) != 0) {
+            return NULL;
+        }
+
+        return NULL;
+    }
+
+    struct TableMetadataNode *table_schema_node = table_schema_first_node;
 
     while (table_schema_node->is_last != true) {
-        if (strcmp(table_schema_node->table_schema.name, name) == 0) {
-            struct TableSchema *table_schema = malloc(get_table_schema_size(&table_schema_node->table_schema));
-            memcpy(table_schema, &table_schema_node->table_schema,
-                   get_table_schema_size(&table_schema_node->table_schema));
+        if (strcmp(table_schema_node->table_metadata.name, name) == 0) {
+            struct TableMetadata *table_schema = malloc(get_table_metadata_size(&table_schema_node->table_metadata));
+            memcpy(table_schema, &table_schema_node->table_metadata,
+                   get_table_metadata_size(&table_schema_node->table_metadata));
 
             if (munmap_file(file_data_pointer, file_size) != 0) {
                 return NULL;
@@ -132,9 +147,10 @@ struct TableSchema *get_table_schema_from_file(int fd, const char *name) {
         table_schema_node = get_next_table_schema_node(table_schema_node);
     }
 
-    if (strcmp(table_schema_node->table_schema.name, name) == 0) {
-        struct TableSchema *table_schema = malloc(get_table_schema_size(&table_schema_node->table_schema));
-        memcpy(table_schema, &table_schema_node->table_schema, get_table_schema_size(&table_schema_node->table_schema));
+    if (strcmp(table_schema_node->table_metadata.name, name) == 0) {
+        struct TableMetadata *table_schema = malloc(get_table_metadata_size(&table_schema_node->table_metadata));
+        memcpy(table_schema, &table_schema_node->table_metadata,
+               get_table_metadata_size(&table_schema_node->table_metadata));
 
         if (munmap_file(file_data_pointer, file_size) != 0) {
             return NULL;
@@ -165,18 +181,44 @@ int delete_table_schema(int fd, const char *name) {
     }
 
     void *file_data_pointer;
-    if (mmap_file(fd, file_size, &file_data_pointer) != 0) {
+    if (mmap_file(fd, &file_data_pointer, TABLE_SCHEMA_PAGE_OFFSET, TABLE_SCHEMA_PAGE_SIZE) != 0) {
         return -1;
     }
 
-    struct TableSchemaNode *table_schema_first_node = (struct TableSchemaNode *) file_data_pointer;
+    struct PageHeader *page_header = (struct PageHeader *) file_data_pointer;
+    struct TableMetadataNode *table_schema_first_node = (struct TableMetadataNode *) (file_data_pointer +
+                                                                                      sizeof(struct PageHeader));
 
-    struct TableSchemaNode *table_schema_node = table_schema_first_node;
+    if (page_header->has_elements != true) {
+        logger(LL_WARN, __func__, TABLE_SCHEMA_TO_DELETE_NOT_FOUND);
+
+        if (munmap_file(file_data_pointer, file_size) != 0) {
+            return -1;
+        }
+
+        return -1;
+    }
+
+    if (strcmp(table_schema_first_node->table_metadata.name, name) == 0 && table_schema_first_node->is_last == true) {
+        page_header->has_elements = false;
+
+        if (sync_file(fd) != 0) {
+            return -1;
+        }
+
+        if (munmap_file(file_data_pointer, file_size) != 0) {
+            return -1;
+        }
+
+        return 0;
+    }
+
+    struct TableMetadataNode *table_schema_node = table_schema_first_node;
 
     while (table_schema_node->is_last != true) {
-        if (strcmp(table_schema_node->table_schema.name, name) == 0) {
+        if (strcmp(table_schema_node->table_metadata.name, name) == 0) {
             size_t amount_of_bytes_to_move =
-                (char *) get_last_table_schema_node(table_schema_node) - (char *) table_schema_node;
+                (char *) get_last_table_metadata_node(table_schema_node) - (char *) table_schema_node;
             memcpy(table_schema_node, get_next_table_schema_node(table_schema_node), amount_of_bytes_to_move);
 
             if (sync_file(fd) != 0) {
@@ -193,9 +235,9 @@ int delete_table_schema(int fd, const char *name) {
         table_schema_node = get_next_table_schema_node(table_schema_node);
     }
 
-    if (strcmp(table_schema_node->table_schema.name, name) == 0) {
+    if (strcmp(table_schema_node->table_metadata.name, name) == 0) {
         size_t amount_of_bytes_to_move =
-            (char *) get_last_table_schema_node(table_schema_node) - (char *) table_schema_node;
+            (char *) get_last_table_metadata_node(table_schema_node) - (char *) table_schema_node;
         memcpy(table_schema_node, get_next_table_schema_node(table_schema_node), amount_of_bytes_to_move);
 
         if (sync_file(fd) != 0) {
