@@ -31,7 +31,7 @@ struct TablePageSubHeader {
 };
 
 struct TableMetadataPageSubHeader {
-    uint64_t table_metadata_count;
+
 };
 
 #endif //LLP_DATABASE_PAGE_H

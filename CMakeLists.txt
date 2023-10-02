@@ -33,4 +33,6 @@ add_executable(test test/test.c
         include/table_operations.h
         src/db/allocator.c
         src/db/allocator.h
+        src/db/table_metadata.h
+        src/db/table_operations.c
 )

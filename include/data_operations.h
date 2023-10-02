@@ -21,7 +21,7 @@ struct OperationPredicateParameter {
  * @param parameters Can be NULL if no parameters are needed.
  * @return A SelectResultIterator that can be used to iterate over the results.
  */
-struct SelectResultIterator *operation_select(char *table_name, struct OperationPredicateParameters *parameters);
+//struct SelectResultIterator *operation_select(char *table_name, struct OperationPredicateParameters *parameters);
 
 /**
  *
@@ -37,7 +37,7 @@ int operation_insert(char *table_name, struct TableRow *row);
  * @param parameters Can be NULL if no parameters are needed.
  * @return 0 if the operation was successful, -1 otherwise.
  */
-int operation_delete(char *table_name, struct OperationPredicateParameters *parameters);
+//int operation_delete(char *table_name, struct OperationPredicateParameters *parameters);
 
 /**
  *
@@ -45,6 +45,6 @@ int operation_delete(char *table_name, struct OperationPredicateParameters *para
  * @param parameters Can be NULL if no parameters are needed.
  * @return 0 if the operation was successful, -1 otherwise.
  */
-int operation_update(char *table_name, struct OperationPredicateParameters *parameters);
+//int operation_update(char *table_name, struct OperationPredicateParameters *parameters);
 
 #endif //LLP_DATABASE_DATA_OPERATIONS_H

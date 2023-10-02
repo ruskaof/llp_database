@@ -17,7 +17,6 @@ int open_file(const char *filename) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Opened file with descriptor %d.", fd);
     return fd;
 }
 
@@ -29,7 +28,6 @@ int close_file(int file_descriptor) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Closed file with descriptor %d.", file_descriptor);
     return 0;
 }
 
@@ -42,7 +40,6 @@ int change_file_size(int fd, uint64_t new_size) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Changed file file size with descriptor %d to %ld.", fd, new_size);
     return 0;
 }
 
@@ -54,7 +51,6 @@ int sync_file(int fd) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Synced file with descriptor %d.", fd);
     return 0;
 }
 
@@ -67,8 +63,6 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Unmapped file with pointer %p and file size %ld.", file_data_pointer,
-           file_size);
     return 0;
 }
 
@@ -81,8 +75,6 @@ int mmap_file(int fd, void **file_data_pointer, uint64_t offset, uint64_t size) 
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Mapped file with descriptor %d, offset %ld and file size %ld.", fd, offset,
-           size);
     return 0;
 }
 
@@ -94,7 +86,6 @@ int delete_file(const char *filename) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Deleted file with name %s.", filename);
     return 0;
 }
 
@@ -106,6 +97,5 @@ uint64_t get_file_size(int fd) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Got file size with descriptor %d.", fd);
     return file_size;
 }

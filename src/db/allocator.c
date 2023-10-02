@@ -50,6 +50,8 @@ int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *
             return -1;
         }
 
+        logger(LL_DEBUG, __func__, "Allocated first page of size %ld in offset %ld.", min_size, 0);
+
         return 0;
     }
 
@@ -93,6 +95,8 @@ int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *
             if (munmap_result == -1) {
                 return -1;
             }
+
+            logger(LL_DEBUG, __func__, "Allocated first page of size %ld in offset %ld.", min_size, file_size);
 
             return 0;
         } else {
