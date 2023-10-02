@@ -5,8 +5,6 @@
 #ifndef LLP_DATABASE_DATA_OPERATIONS_H
 #define LLP_DATABASE_DATA_OPERATIONS_H
 
-#include "../src/db/table_metadata.h"
-
 struct SelectResultIterator {
     struct TableRow *current_row;
 };
@@ -16,10 +14,6 @@ struct OperationPredicateParameter {
     void *value;
 };
 
-struct OperationPredicateParameters {
-    size_t parameters_count;
-    struct OperationPredicateParameter parameters[];
-};
 
 /**
  *

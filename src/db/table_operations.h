@@ -1,8 +1,0 @@
-//
-// Created by ruskaof on 2/10/23.
-//
-
-#ifndef LLP_DATABASE_TABLE_OPERATIONS_H
-#define LLP_DATABASE_TABLE_OPERATIONS_H
-
-#endif //LLP_DATABASE_TABLE_OPERATIONS_H

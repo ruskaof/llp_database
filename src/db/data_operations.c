@@ -29,11 +29,7 @@ struct TableRowNode *get_next_table_row_node(struct TableRowNode *row_node) {
     return (struct TableRowNode *) (((char *) row_node) + get_table_row_node_size(row_node));
 }
 
-struct SelectResultIterator *operation_select(char *table_name, struct OperationPredicateParameters *parameters) {
-    logger(LL_DEBUG, __func__, "Selecting from table %s.", table_name);
 
-
-}
 
 int operation_insert(char *table_name, struct TableRow *row) {
 

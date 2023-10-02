@@ -5,65 +5,40 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/db/table_metadata.h"
-#include "../src/utils/logging.h"
 #include "../src/db/file.h"
+#include "../src/db/allocator.h"
+#include "../src/db/page.h"
 
-void print_table_schema(struct TableMetadata *table_schema) {
-    if (table_schema == NULL) {
-        printf("Table schema is NULL\n");
-        return;
-    }
+void allocator_test() {
+    int fd = open_file("/home/ruskaof/Desktop/testdb2");
+    uint64_t first_page_offset;
+    uint64_t first_page_size;
+    uint64_t first_alloc_result = allocate_page(fd, 123, PT_TABLE_DATA_PAGE, &first_page_offset, &first_page_size);
+    printf("First alloc result: %ld, offset: %ld\n", first_alloc_result, first_page_offset);
 
-    printf("Table schema: %s\n", table_schema->name);
-    printf("Columns count: %zu\n", table_schema->columns_count);
-    printf("Columns:\n");
+    uint64_t second_page_offset;
+    uint64_t second_page_size;
+    uint64_t second_alloc_result = allocate_page(fd, 123, PT_TABLE_METADATA_PAGE, &second_page_offset,
+                                                 &second_page_size);
+    printf("Second alloc result: %ld, offset: %ld\n", second_alloc_result, second_page_offset);
 
-    for (size_t i = 0; i < table_schema->columns_count; i++) {
-        printf("Column %zu: %s\n", i, table_schema->columns[i].name);
-    }
+    uint64_t third_page_offset;
+    uint64_t third_page_size;
+    uint64_t third_alloc_result = allocate_page(fd, 123, PT_TABLE_METADATA_PAGE, &third_page_offset, &third_page_size);
+    printf("Third alloc result: %ld, offset: %ld\n", third_alloc_result, third_page_offset);
+
+    // delete second page
+    int delete_result = delete_page(fd, second_page_offset);
+
+    uint64_t fourth_page_offset;
+    uint64_t fourth_page_size;
+    uint64_t fourth_alloc_result = allocate_page(fd, 123, PT_TABLE_DATA_PAGE, &fourth_page_offset, &fourth_page_size);
+    printf("Fourth alloc result: %ld, offset: %ld\n", fourth_alloc_result, fourth_page_offset);
+
+    delete_file("/home/ruskaof/Desktop/testdb2");
 }
 
 int main() {
-    int fd = open_file("/home/ruskaof/Desktop/testdb");
-
-
-    struct TableMetadata *table_schema = malloc(sizeof(struct TableMetadata) + 2 * sizeof(struct TableColumn));
-
-    strcpy(table_schema->name, "test_table4");
-    table_schema->columns_count = 2;
-    table_schema->columns[0].type = TD_INT64;
-    strcpy(table_schema->columns[0].name, "id4");
-    table_schema->columns[1].type = TD_STRING;
-    strcpy(table_schema->columns[1].name, "name4");
-
-    insert_table_metadata_to_file(fd, table_schema);
-
-    struct TableMetadata *table_schema_from_file = get_table_schema_from_file(fd, "test_table4");
-    print_table_schema(table_schema_from_file);
-
-
-    strcpy(table_schema->name, "test_table5");
-
-    table_schema->columns_count = 2;
-    table_schema->columns[0].type = TD_INT64;
-    strcpy(table_schema->columns[0].name, "id5");
-    table_schema->columns[1].type = TD_STRING;
-    strcpy(table_schema->columns[1].name, "name5");
-
-    insert_table_metadata_to_file(fd, table_schema);
-
-    table_schema_from_file = get_table_schema_from_file(fd, "test_table5");
-    print_table_schema(table_schema_from_file);
-
-    delete_table_schema(fd, "test_table4");
-
-    table_schema_from_file = get_table_schema_from_file(fd, "test_table4");
-    print_table_schema(table_schema_from_file);
-
-    table_schema_from_file = get_table_schema_from_file(fd, "test_table5");
-    print_table_schema(table_schema_from_file);
-
-
-    close_file(fd);
+    allocator_test();
+    //schema_create_test();
 }

@@ -8,15 +8,16 @@ add_library(llp_database
         src/utils/logging.h
         src/db/file.h
         src/db/file.c
-        src/db/table_metadata.c
-        src/db/table_metadata.h
         src/db/page.c
         src/db/page.h
         src/db/data_operations.c
         include/data_operations.h
         include/table.h
-        src/db/table_operations.cpp
-        src/db/table_operations.h
+        include/table_operations.h
+        src/db/allocator.c
+        src/db/allocator.h
+        src/db/table_metadata.h
+        src/db/table_operations.c
 )
 
 add_executable(test test/test.c
@@ -24,8 +25,12 @@ add_executable(test test/test.c
         src/utils/logging.h
         src/db/file.h
         src/db/file.c
-        src/db/table_metadata.c
-        src/db/table_metadata.h
         src/db/page.c
         src/db/page.h
+        src/db/data_operations.c
+        include/data_operations.h
+        include/table.h
+        include/table_operations.h
+        src/db/allocator.c
+        src/db/allocator.h
 )
