@@ -45,6 +45,12 @@ int find_table_metadata_on_page(void *page_data_pointer, char *table_name, uint6
             ((char *) table_metadata_ll_node + get_table_metadata_ll_node_size(table_metadata_ll_node));
     }
 
+    if (strcmp(table_metadata_ll_node->table_metadata.name, table_name) == 0) {
+        *table_metadata_offset = (uint64_t) ((char *) table_metadata_ll_node - (char *) page_data_pointer);
+        *table_metadata_size = get_table_metadata_ll_node_size(table_metadata_ll_node);
+        return 0;
+    }
+
     return -1;
 }
 
@@ -72,6 +78,8 @@ int find_table_metadata(int fd, char *table_name, uint64_t *table_metadata_offse
             );
 
             if (find_table_metadata_res == 0) {
+                *table_metadata_offset += current_offset;
+
                 int munmap_res = munmap_file(file_data_pointer, file_size);
                 if (munmap_res != 0) {
                     logger(LL_ERROR, __func__, "Failed to munmap file");
@@ -149,8 +157,8 @@ int insert_table_metadata_in_page(void *page_data_pointer, struct TableMetadata 
         table_metadata_ll_node->table_metadata = *table_metadata;
         page_header->has_elements = true;
 
-        logger(LL_DEBUG, __func__, "Inserted table metadata in page to offset %ld", (char *) table_metadata_ll_node -
-                                                                                    (char *) page_data_pointer);
+        logger(LL_DEBUG, __func__, "Inserted table metadata in page to offset from page start %ld",
+               (char *) table_metadata_ll_node - (char *) page_data_pointer);
 
         return 0;
     }
@@ -169,7 +177,7 @@ int insert_table_metadata_in_page(void *page_data_pointer, struct TableMetadata 
     new_table_metadata_ll_node->table_metadata = *table_metadata;
     table_metadata_ll_node->is_last = false;
 
-    logger(LL_DEBUG, __func__, "Inserted table metadata in page to offset %ld",
+    logger(LL_DEBUG, __func__, "Inserted table metadata in page to offset from page start %ld",
            (char *) new_table_metadata_ll_node - (char *) page_data_pointer);
 
     return 0;
@@ -216,6 +224,8 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
             return -1;
         }
 
+        free(table_metadata);
+
         int sync_file_result = sync_file(fd);
         if (sync_file_result != 0) {
             logger(LL_ERROR, __func__, "Failed to sync file");
@@ -253,6 +263,8 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
     }
 
     insert_table_metadata_in_page(table_metadata_page_data_pointer, table_metadata);
+
+    free(table_metadata);
 
     int sync_file_result = sync_file(fd);
     if (sync_file_result != 0) {
