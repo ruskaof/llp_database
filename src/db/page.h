@@ -34,4 +34,10 @@ struct TableMetadataPageSubHeader {
 
 };
 
+struct PageItem {
+    uint64_t item_size;
+    bool is_last;
+    void *item_data;
+};
+
 #endif //LLP_DATABASE_PAGE_H

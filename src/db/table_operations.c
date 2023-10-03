@@ -102,49 +102,6 @@ int find_table_metadata(int fd, char *table_name, uint64_t *table_metadata_offse
     return -1;
 }
 
-int find_table_metadata_page(int fd, uint64_t *table_metadata_page_offset, uint64_t *table_metadata_page_size) {
-    logger(LL_DEBUG, __func__, "Finding table metadata page");
-    uint64_t file_size = get_file_size(fd);
-
-    void *file_data_pointer;
-    int mmap_res = mmap_file(fd, &file_data_pointer, 0, file_size);
-    if (mmap_res != 0) {
-        logger(LL_ERROR, __func__, "Failed to mmap file");
-        return -1;
-    }
-
-    uint64_t current_offset = 0;
-
-    while (current_offset < file_size) {
-        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
-
-        if (page_header->page_type == PT_TABLE_METADATA_PAGE) {
-            *table_metadata_page_offset = current_offset;
-            *table_metadata_page_size = page_header->page_size;
-
-            int munmap_res = munmap_file(file_data_pointer, file_size);
-            if (munmap_res != 0) {
-                logger(LL_ERROR, __func__, "Failed to munmap file");
-                return -1;
-            }
-
-            logger(LL_DEBUG, __func__, "Found table metadata page at offset %ld", *table_metadata_page_offset);
-
-            return 0;
-        }
-        current_offset += page_header->page_size;
-    }
-
-    int munmap_res = munmap_file(file_data_pointer, file_size);
-    if (munmap_res != 0) {
-        logger(LL_ERROR, __func__, "Failed to munmap file");
-        return -1;
-    }
-
-    logger(LL_DEBUG, __func__, "Table metadata page not found");
-    return -1;
-}
-
 int insert_table_metadata_in_page(void *page_data_pointer, struct TableMetadata *table_metadata) {
     logger(LL_DEBUG, __func__, "Inserting table metadata in page");
 
@@ -207,8 +164,37 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
 
     uint64_t table_metadata_page_offset;
     uint64_t table_metadata_page_size;
-    int table_metadata_page_find_res = find_table_metadata_page(fd, &table_metadata_page_offset,
-                                                                &table_metadata_page_size);
+
+    logger(LL_DEBUG, __func__, "Finding table metadata page");
+    uint64_t file_size = get_file_size(fd);
+
+    void *file_data_pointer;
+    int mmap_res = mmap_file(fd, &file_data_pointer, 0, file_size);
+    if (mmap_res != 0) {
+        logger(LL_ERROR, __func__, "Failed to mmap file");
+        return -1;
+    }
+
+    uint64_t current_offset = 0;
+
+    while (current_offset < file_size) {
+        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
+
+        if (page_header->page_type == PT_TABLE_METADATA_PAGE) {
+            table_metadata_page_offset = current_offset;
+            table_metadata_page_size = page_header->page_size;
+
+            int munmap_res = munmap_file(file_data_pointer, file_size);
+            if (munmap_res != 0) {
+                logger(LL_ERROR, __func__, "Failed to munmap file");
+                return -1;
+            }
+
+            logger(LL_DEBUG, __func__, "Found table metadata page at offset %ld", table_metadata_page_offset);
+        }
+        current_offset += page_header->page_size;
+    }
+
     if (table_metadata_page_find_res == 0) {
         void *table_metadata_page_data_pointer;
         int table_metadata_page_mmap_res = mmap_file(fd, &table_metadata_page_data_pointer, table_metadata_page_offset,
