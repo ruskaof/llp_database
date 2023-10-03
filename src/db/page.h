@@ -15,13 +15,15 @@
 #define TABLE_SCHEMA_PAGE_SIZE 65536
 
 enum PageType {
+    PT_DELETED_PAGE,
     PT_TABLE_METADATA_PAGE,
     PT_TABLE_DATA_PAGE
 };
 
 struct PageHeader {
     bool has_elements;
-    bool is_deleted;
+    uint64_t prev_page_offset;
+    uint64_t next_same_type_page_offset;
     uint64_t page_size;
     enum PageType page_type;
 };
@@ -31,7 +33,6 @@ struct TablePageSubHeader {
 };
 
 struct TableMetadataPageSubHeader {
-
 };
 
 struct PageItem {
