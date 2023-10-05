@@ -11,83 +11,65 @@
 #include "../include/table_operations.h"
 #include "../src/db/table_metadata.h"
 
+void print_file(int fd) {
+    void *file_data_pointer;
+    uint64_t file_size = get_file_size(fd);
+    mmap_file(fd, &file_data_pointer, 0, file_size);
+
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    printf("File header:\n");
+    printf("Has deleted elements: %d\n", file_header->has_deleted_elements);
+    printf("First deleted element offset: %lu\n", file_header->first_deleted_element_offset);
+    printf("Has table metadata elements: %d\n", file_header->has_table_metadata_elements);
+    printf("Last table metadata element offset: %lu\n", file_header->last_table_metadata_element_offset);
+    printf("Has table data elements: %d\n", file_header->has_table_data_elements);
+    printf("Last table data element offset: %lu\n", file_header->last_table_data_element_offset);
+    printf("Last element offset: %lu\n", file_header->last_element_offset);
+
+    struct ElementHeader *element_header = (struct ElementHeader *) (file_data_pointer + FIRST_ELEMENT_OFFSET);
+    while ((char *) element_header <= (char *) file_data_pointer + file_header->last_element_offset) {
+        printf("Element header:\n");
+        printf("Element offset: %lu\n", ((char *) element_header) - ((char *) file_data_pointer));
+        printf("Element size: %lu\n", element_header->element_size);
+        printf("Element type: %d\n", element_header->element_type);
+        printf("Has next element of type: %d\n", element_header->has_next_element_of_type);
+        printf("Next element of type offset: %lu\n", element_header->next_element_of_type_offset);
+        printf("Has prev element of type: %d\n", element_header->has_prev_element_of_type);
+        printf("Prev element of type offset: %lu\n", element_header->prev_element_of_type_offset);
+        printf("Has prev element: %d\n", element_header->has_prev_element);
+        printf("Prev element offset: %lu\n", element_header->prev_element_offset);
+        printf("\n");
+        element_header = (struct ElementHeader *) (((char *) element_header) + element_header->element_size);
+    }
+
+    munmap_file(file_data_pointer, file_size, fd);
+}
+
 void allocator_test() {
     int fd = open_file("/home/ruskaof/Desktop/testdb2");
-    uint64_t first_page_offset;
-    uint64_t first_page_size;
-    uint64_t first_alloc_result = allocate_element(fd, 123, ET_TABLE_DATA, &first_page_offset, &first_page_size);
-    printf("First alloc result: %ld, offset: %ld\n", first_alloc_result, first_page_offset);
+    uint64_t first_allocated_element_offset;
+    allocate_element(fd, 100, ET_TABLE_DATA, &first_allocated_element_offset);
 
-    uint64_t second_page_offset;
-    uint64_t second_page_size;
-    uint64_t second_alloc_result = allocate_element(fd, 123, ET_TABLE_METADATA, &second_page_offset,
-                                                    &second_page_size);
-    printf("Second alloc result: %ld, offset: %ld\n", second_alloc_result, second_page_offset);
+    uint64_t second_allocated_element_offset;
+    allocate_element(fd, 200, ET_TABLE_DATA, &second_allocated_element_offset);
 
-    uint64_t third_page_offset;
-    uint64_t third_page_size;
-    uint64_t third_alloc_result = allocate_element(fd, 123, ET_TABLE_METADATA, &third_page_offset, &third_page_size);
-    printf("Third alloc result: %ld, offset: %ld\n", third_alloc_result, third_page_offset);
+    uint64_t third_allocated_element_offset;
+    allocate_element(fd, 300, ET_TABLE_DATA, &third_allocated_element_offset);
 
-    uint64_t fourth_page_offset;
-    uint64_t fourth_page_size;
-    uint64_t fourth_alloc_result = allocate_element(fd, 123, ET_TABLE_METADATA, &fourth_page_offset,
-                                                    &fourth_page_size);
-    printf("Fourth alloc result: %ld, offset: %ld\n", fourth_alloc_result, fourth_page_offset);
+    print_file(fd);
 
-    // delete second page
-    int delete_result = delete_element(fd, second_page_offset);
-    delete_result = delete_element(fd, third_page_offset);
+    delete_element(fd, second_allocated_element_offset);
 
+    printf("After delete:\n");
 
-    uint64_t fifth_page_offset;
-    uint64_t fifth_page_size;
-    uint64_t fifth_alloc_result = allocate_element(fd, 123, ET_TABLE_DATA, &fifth_page_offset, &fifth_page_size);
-    printf("Fifth alloc result: %ld, offset: %ld\n", fifth_alloc_result, fifth_page_offset);
+    print_file(fd);
+
+    close_file(fd);
 
     delete_file("/home/ruskaof/Desktop/testdb2");
 }
 
-//void table_metadata_test() {
-//    int fd = open_file("/home/ruskaof/Desktop/testdb3");
-//
-//    struct TableColumn *first_columns = malloc(sizeof(struct TableColumn) * 2);
-//    strcpy(first_columns[0].name, "id1");
-//    first_columns[0].type = TD_INT64;
-//
-//    strcpy(first_columns[1].name, "name1");
-//    first_columns[1].type = TD_INT64;
-//
-//    int create_result = operation_create_table(fd, "first_test_table", first_columns, 2);
-//    printf("Create result: %d\n", create_result);
-//
-//    struct TableColumn *second_columns = malloc(sizeof(struct TableColumn) * 3);
-//    strcpy(first_columns[0].name, "id2");
-//    first_columns[0].type = TD_INT64;
-//
-//    strcpy(first_columns[1].name, "name2");
-//    first_columns[1].type = TD_INT64;
-//
-//    strcpy(first_columns[1].name, "bf2");
-//    first_columns[1].type = TD_BOOL;
-//
-//    int create_result_2 = operation_create_table(fd, "second_test_table", second_columns, 3);
-//    printf("Create result: %d\n", create_result_2);
-//
-//    uint64_t table_metadata_offset1;
-//    uint64_t table_metadata_size1;
-//    int find_result1 = find_table_metadata(fd, "first_test_table", &table_metadata_offset1, &table_metadata_size1);
-//    printf("Find result: %d, offset: %ld, size: %ld\n", find_result1, table_metadata_offset1, table_metadata_size1);
-//
-//    uint64_t table_metadata_offset2;
-//    uint64_t table_metadata_size2;
-//    int find_result2 = find_table_metadata(fd, "second_test_table", &table_metadata_offset2, &table_metadata_size2);
-//    printf("Find result: %d, offset: %ld, size: %ld\n", find_result2, table_metadata_offset2, table_metadata_size2);
-//
-//    delete_file("/home/ruskaof/Desktop/testdb3");
-//}
 
 int main() {
     allocator_test();
-    //table_metadata_test();
 }

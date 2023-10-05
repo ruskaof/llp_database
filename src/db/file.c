@@ -54,7 +54,7 @@ int sync_file(int fd) {
     return 0;
 }
 
-int munmap_file(void *file_data_pointer, uint64_t file_size) {
+int munmap_file(void *file_data_pointer, uint64_t file_size, int fd) {
     int result = munmap(file_data_pointer, file_size);
 
     if (result != 0) {
@@ -62,6 +62,8 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
                file_data_pointer, file_size);
         return -1;
     }
+
+    sync_file(fd);
 
     return 0;
 }

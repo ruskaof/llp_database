@@ -16,7 +16,7 @@ int change_file_size(int fd, uint64_t new_size);
 
 int sync_file(int fd);
 
-int munmap_file(void *file_data_pointer, uint64_t file_size);
+int munmap_file(void *file_data_pointer, uint64_t file_size, int fd);
 
 int mmap_file(int fd, void **file_data_pointer, uint64_t offset, uint64_t size);
 
