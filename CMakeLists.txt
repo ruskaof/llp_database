@@ -9,7 +9,7 @@ add_library(llp_database
         src/db/file.h
         src/db/file.c
         src/db/page.c
-        src/db/page.h
+        src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
         include/table.h
@@ -26,7 +26,7 @@ add_executable(test test/test.c
         src/db/file.h
         src/db/file.c
         src/db/page.c
-        src/db/page.h
+        src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
         include/table.h

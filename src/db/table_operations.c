@@ -25,14 +25,14 @@
 //
 //int find_table_metadata_on_page(void *page_data_pointer, char *table_name, uint64_t *table_metadata_offset,
 //                                uint64_t *table_metadata_size) {
-//    struct PageHeader *page_header = (struct PageHeader *) page_data_pointer;
+//    struct ElementHeader *page_header = (struct ElementHeader *) page_data_pointer;
 //
 //    if (!page_header->has_elements) {
 //        return -1;
 //    }
 //
 //    struct TableMetadataLLNode *table_metadata_ll_node = (struct TableMetadataLLNode *)
-//        ((char *) page_data_pointer + sizeof(struct PageHeader) + sizeof(struct TableMetadataPageSubHeader));
+//        ((char *) page_data_pointer + sizeof(struct ElementHeader) + sizeof(struct TableMetadataPageSubHeader));
 //
 //    while (!table_metadata_ll_node->is_last) {
 //        if (strcmp(table_metadata_ll_node->table_metadata.name, table_name) == 0) {
@@ -67,9 +67,9 @@
 //    uint64_t current_offset = 0;
 //
 //    while (current_offset < file_size) {
-//        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
+//        struct ElementHeader *page_header = (struct ElementHeader *) ((char *) file_data_pointer + current_offset);
 //
-//        if (page_header->page_type == PT_TABLE_METADATA_PAGE) {
+//        if (page_header->page_type == ET_TABLE_METADATA) {
 //            int find_table_metadata_res = find_table_metadata_on_page(
 //                (char *) file_data_pointer + current_offset,
 //                table_name,
@@ -105,11 +105,11 @@
 //int insert_table_metadata_in_page(void *page_data_pointer, struct TableMetadata *table_metadata) {
 //    logger(LL_DEBUG, __func__, "Inserting table metadata in page");
 //
-//    struct PageHeader *page_header = (struct PageHeader *) page_data_pointer;
+//    struct ElementHeader *page_header = (struct ElementHeader *) page_data_pointer;
 //
 //    if (!page_header->has_elements) {
 //        struct TableMetadataLLNode *table_metadata_ll_node = (struct TableMetadataLLNode *)
-//            ((char *) page_data_pointer + sizeof(struct PageHeader) + sizeof(struct TableMetadataPageSubHeader));
+//            ((char *) page_data_pointer + sizeof(struct ElementHeader) + sizeof(struct TableMetadataPageSubHeader));
 //        table_metadata_ll_node->is_last = true;
 //        table_metadata_ll_node->table_metadata = *table_metadata;
 //        page_header->has_elements = true;
@@ -121,7 +121,7 @@
 //    }
 //
 //    struct TableMetadataLLNode *table_metadata_ll_node = (struct TableMetadataLLNode *)
-//        ((char *) page_data_pointer + sizeof(struct PageHeader) + sizeof(struct TableMetadataPageSubHeader));
+//        ((char *) page_data_pointer + sizeof(struct ElementHeader) + sizeof(struct TableMetadataPageSubHeader));
 //
 //    while (!table_metadata_ll_node->is_last) {
 //        table_metadata_ll_node = (struct TableMetadataLLNode *)
@@ -145,9 +145,9 @@
 //
 //    uint64_t table_data_page_offset;
 //    uint64_t table_data_page_size;
-//    int table_data_page_alloc_res = allocate_page(fd,
-//                                                  MIN_PAGE_SIZE,
-//                                                  PT_TABLE_DATA_PAGE,
+//    int table_data_page_alloc_res = allocate_element(fd,
+//                                                  ALLOC_SIZE,
+//                                                  ET_TABLE_DATA,
 //                                                  &table_data_page_offset,
 //                                                  &table_data_page_size);
 //    if (table_data_page_alloc_res != 0) {
@@ -178,9 +178,9 @@
 //    uint64_t current_offset = 0;
 //
 //    while (current_offset < file_size) {
-//        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
+//        struct ElementHeader *page_header = (struct ElementHeader *) ((char *) file_data_pointer + current_offset);
 //
-//        if (page_header->page_type == PT_TABLE_METADATA_PAGE) {
+//        if (page_header->page_type == ET_TABLE_METADATA) {
 //            table_metadata_page_offset = current_offset;
 //            table_metadata_page_size = page_header->page_size;
 //
@@ -230,9 +230,9 @@
 //
 //    logger(LL_DEBUG, __func__, "Table metadata page not found, creating new one");
 //
-//    int table_metadata_page_alloc_res = allocate_page(fd,
+//    int table_metadata_page_alloc_res = allocate_element(fd,
 //                                                      TABLE_SCHEMA_PAGE_SIZE,
-//                                                      PT_TABLE_METADATA_PAGE,
+//                                                      ET_TABLE_METADATA,
 //                                                      &table_metadata_page_offset,
 //                                                      &table_metadata_page_size);
 //    if (table_metadata_page_alloc_res != 0) {

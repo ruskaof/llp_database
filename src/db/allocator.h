@@ -5,13 +5,13 @@
 #ifndef LLP_DATABASE_ALLOCATOR_H
 #define LLP_DATABASE_ALLOCATOR_H
 
-#include "page.h"
+#include "element.h"
 
 #include <stdlib.h>
 #include <stdint.h>
 
-int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *page_offset, uint64_t *page_size);
+int allocate_element(int fd, uint64_t requested_element_size, enum ElementType element_type, uint64_t *element_offset);
 
-int delete_page(int fd, uint64_t page_offset);
+int delete_element(int fd, uint64_t element_offset);
 
 #endif //LLP_DATABASE_ALLOCATOR_H

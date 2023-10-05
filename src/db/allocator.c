@@ -7,13 +7,9 @@
 
 #include "../utils/logging.h"
 
-void init_page_header(void *file_data_pointer,
-                      uint64_t page_offset,
-                      enum PageType page_type,
-                      uint64_t page_size,
-                      uint64_t prev_page_of_type_offset,
-                      uint64_t next_page_of_type_offset) {
-    struct PageHeader *page_header = (struct PageHeader *) (file_data_pointer + page_offset);
+void init_page_header(void *file_data_pointer, uint64_t page_offset, enum ElementType page_type, uint64_t page_size,
+                      uint64_t prev_page_of_type_offset, uint64_t next_page_of_type_offset) {
+    struct ElementHeader *page_header = (struct ElementHeader *) (file_data_pointer + page_offset);
 
     page_header->page_size = page_size;
     page_header->has_elements = false;
@@ -22,161 +18,224 @@ void init_page_header(void *file_data_pointer,
     page_header->next_same_type_page_offset = next_page_of_type_offset;
 }
 
-void merge_deleted_page_with_next_and_prev_pages(void *file_data_pointer,
-                                                 uint64_t file_size
-) {
+void merge_deleted_page_with_next_and_prev_pages(void *file_data_pointer, uint64_t file_size) {
     if (!page->is_deleted) {
         logger(LL_ERROR, __func__, "Page is not deleted.");
         return;
     }
 
-    struct PageHeader *next_page = (struct PageHeader *) ((char *) page + page->page_size);
+    struct ElementHeader *next_page = (struct ElementHeader *) ((char *) page + page->page_size);
 
     while (next_page->is_deleted && (char *) next_page < (char *) file_data_pointer + file_size) {
         logger(LL_DEBUG, __func__, "Merging page of size %ld with next page of size %ld.", page->page_size,
                next_page->page_size);
         page->page_size += next_page->page_size;
-        next_page = (struct PageHeader *) ((char *) page + page->page_size);
+        next_page = (struct ElementHeader *) ((char *) page + page->page_size);
     }
 }
 
-int allocate_page_in_empty_file(int fd,
-                                uint64_t min_size,
-                                enum PageType page_type,
-                                uint64_t *page_offset,
-                                uint64_t *page_size) {
-    logger(LL_DEBUG, __func__, "File is empty, allocating first page.");
-    int change_file_size_result = change_file_size(fd, min_size + FIRST_PAGE_OFFSET);
+int init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType element_type) {
+    logger(LL_DEBUG, __func__, "Initializing empty file.");
+
+    int change_file_size_result = change_file_size(fd, ALLOC_SIZE);
     if (change_file_size_result == -1) {
         return -1;
     }
 
-    *page_offset = FIRST_PAGE_OFFSET;
-    *page_size = min_size;
-
     void *file_data_pointer;
-    int mmap_result = mmap_file(fd, &file_data_pointer, 0, min_size);
+
+    int mmap_result = mmap_file(fd, &file_data_pointer, 0, ALLOC_SIZE);
     if (mmap_result == -1) {
         return -1;
     }
 
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
-    file_header->first_deleted_page_offset = -1;
-    file_header->has_deleted_pages = false;
 
-    init_page_header(file_data_pointer,
-                     FIRST_PAGE_OFFSET,
-                     page_type,
-                     min_size,
-                     0,
-                     0);
+    file_header->last_element_offset = FIRST_ELEMENT_OFFSET;
 
-    sync_file(fd);
+    file_header->has_deleted_elements = false;
+    file_header->has_table_metadata_elements = false;
+    file_header->has_table_data_elements = false;
+    switch (element_type) {
+        case ET_DELETED:
+            file_header->has_deleted_elements = true;
+            file_header->first_deleted_element_offset = FIRST_ELEMENT_OFFSET;
+            break;
+        case ET_TABLE_METADATA:
+            file_header->has_table_metadata_elements = true;
+            file_header->last_table_metadata_element_offset = FIRST_ELEMENT_OFFSET;
+            break;
+        case ET_TABLE_DATA:
+            file_header->has_table_data_elements = true;
+            file_header->last_table_data_element_offset = FIRST_ELEMENT_OFFSET;
+            break;
+    }
 
-    int munmap_result = munmap_file(file_data_pointer, min_size);
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + FIRST_ELEMENT_OFFSET);
+    element_header->element_type = element_type;
+    element_header->element_size = element_size;
+    element_header->has_next_element_of_type = false;
+    element_header->has_prev_element_of_type = false;
+    element_header->has_prev_element = false;
+
+    int munmap_result = munmap_file(file_data_pointer, ALLOC_SIZE);
     if (munmap_result == -1) {
         return -1;
     }
 
-    logger(LL_DEBUG, __func__, "Allocated first page of size %ld in offset %ld.", min_size, 0);
+    return 0;
 }
 
-int find_suitable_deleted_page(void *file_data_pointer,
-                               uint64_t file_size,
-                               uint64_t min_size,
-                               uint64_t *suitable_deleted_page_offset) {
-    logger(LL_DEBUG, __func__, "Finding suitable deleted page of size %ld.", min_size);
+int find_suitable_deleted_element_offset(void *file_data_pointer, uint64_t requested_element_size,
+                                         uint64_t *suitable_deleted_element_offset) {
+    logger(LL_DEBUG, __func__, "Finding suitable deleted element of size %ld.", requested_element_size);
 
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
-    if (file_header->has_deleted_pages == false) {
+
+    if (!file_header->has_deleted_elements) {
+        logger(LL_DEBUG, __func__, "File has no deleted elements.");
         return -1;
     }
 
-    uint64_t current_offset = file_header->first_deleted_page_offset;
-    while (current_offset < file_size) {
-        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
-        if (page_header->page_size >= min_size) {
-            *suitable_deleted_page_offset = current_offset;
+    uint64_t current_offset = file_header->first_deleted_element_offset;
+
+    while (current_offset <= file_header->last_element_offset) {
+        struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + current_offset);
+
+        if (element_header->element_size >= requested_element_size) {
+            logger(LL_DEBUG, __func__, "Found suitable deleted element of size %ld.", element_header->element_size);
+            *suitable_deleted_element_offset = current_offset;
             return 0;
         }
-        struct DeletedPageSubHeader *deleted_page_sub_header =
-            (struct DeletedPageSubHeader *) ((char *) page_header + sizeof(struct PageHeader));
 
-        if (deleted_page_sub_header->is_last_deleted_page) {
+        if (!element_header->has_next_element_of_type) {
+            logger(LL_DEBUG, __func__, "Could not find suitable deleted element.");
             return -1;
         }
 
-        current_offset = deleted_page_sub_header->next_deleted_page_offset;
+        current_offset = element_header->next_element_of_type_offset;
     }
 
+    logger(LL_ERROR, __func__, "Cannot get to this point. CHECK THIS.");
     return -1;
 }
 
-void set_offsets_to_deleted_page(const void *file_data_pointer, uint64_t prev_deleted_page_offset,
-                                 uint64_t next_deleted_page_offset, uint64_t split_page_offset) {
-    if (prev_deleted_page_offset == 0) {
-        struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
-        file_header->first_deleted_page_offset = split_page_offset;
-    } else {
-        struct PageHeader *prev_deleted_page_header = (struct PageHeader *) ((char *) file_data_pointer +
-                                                                             prev_deleted_page_offset);
-        prev_deleted_page_header->next_page_of_type_offset = split_page_offset;
+void set_offsets_to_deleted_element(const void *file_data_pointer, uint64_t split_element_offset,
+                                    bool has_next_element_of_type, uint64_t next_element_of_type_offset,
+                                    bool has_prev_element_of_type, uint64_t prev_element_of_type_offset) {
+    struct ElementHeader *split_element_header =
+        (struct ElementHeader *) ((char *) file_data_pointer + split_element_offset);
 
-        struct PageHeader *next_deleted_page_header = (struct PageHeader *) ((char *) file_data_pointer +
-                                                                             next_deleted_page_offset);
-        next_deleted_page_header->prev_page_of_type_offset = split_page_offset;
+    split_element_header->has_next_element_of_type = has_next_element_of_type;
+    split_element_header->next_element_of_type_offset = next_element_of_type_offset;
+    split_element_header->has_prev_element_of_type = has_prev_element_of_type;
+    split_element_header->prev_element_of_type_offset = prev_element_of_type_offset;
+
+    if (has_next_element_of_type) {
+        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              next_element_of_type_offset);
+
+        next_element_header->has_prev_element_of_type = true;
+        next_element_header->prev_element_of_type_offset = split_element_offset;
+    }
+
+    if (has_prev_element_of_type) {
+        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              prev_element_of_type_offset);
+
+        prev_element_header->has_next_element_of_type = true;
+        prev_element_header->next_element_of_type_offset = split_element_offset;
     }
 }
 
-int split_deleted_page_for_allocation(
-    void *file_data_pointer,
-    uint64_t page_offset,
-    uint64_t space_for_page
-) {
-    struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + page_offset);
+int split_deleted_element_for_allocation(void *file_data_pointer, uint64_t deleted_element_offset,
+                                         uint64_t requested_element_size) {
+    struct ElementHeader *deleted_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                             deleted_element_offset);
 
-    uint64_t original_page_size = page_header->page_size;
-    if (original_page_size - space_for_page >= MIN_PAGE_SIZE) {
-        logger(LL_DEBUG, __func__, "Page is big enough to be splitted, splitting it.");
+    uint64_t original_element_size = deleted_element_header->element_size;
+    uint64_t old_prev_element_offset = deleted_element_header->prev_element_offset;
+    uint64_t old_has_prev_element = deleted_element_header->has_prev_element;
 
-        uint64_t prev_deleted_page_offset = page_header->prev_page_of_type_offset;
-        uint64_t next_deleted_page_offset = page_header->next_page_of_type_offset;
+    if (original_element_size < requested_element_size ||
+        original_element_size - requested_element_size < MIN_ELEMENT_SIZE) {
+        logger(LL_DEBUG, __func__, "Deleted element is too small to be splitted.");
+        return -1;
+    }
 
-        page_header->page_size = space_for_page;
+    bool old_has_next_element_of_type = deleted_element_header->has_next_element_of_type;
+    uint64_t old_next_element_of_type_offset = deleted_element_header->next_element_of_type_offset;
+    bool old_has_prev_element_of_type = deleted_element_header->has_prev_element_of_type;
+    uint64_t old_prev_element_of_type_offset = deleted_element_header->prev_element_of_type_offset;
 
-        struct PageHeader *new_page_header = (struct PageHeader *) ((char *) page_header + space_for_page);
-        new_page_header->page_size = original_page_size - space_for_page;
+    uint64_t split_element_offset = deleted_element_offset + requested_element_size;
 
-        uint64_t split_page_offset = page_offset + space_for_page;
+    struct ElementHeader *split_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                           split_element_offset);
+    split_element_header->element_type = ET_DELETED;
+    split_element_header->prev_element_offset = deleted_element_offset;
+    split_element_header->has_prev_element = true;
 
-        init_page_header(file_data_pointer,
-                         split_page_offset,
-                         PT_DELETED_PAGE,
-                         original_page_size - space_for_page,
-                         prev_deleted_page_offset,
-                         next_deleted_page_offset);
+    set_offsets_to_deleted_element(file_data_pointer, split_element_offset, old_has_next_element_of_type,
+                                   old_next_element_of_type_offset, old_has_prev_element_of_type,
+                                   old_prev_element_of_type_offset);
 
-        set_offsets_to_deleted_page(file_data_pointer, prev_deleted_page_offset, next_deleted_page_offset,
-                                    split_page_offset);
+
+    deleted_element_header->element_size = requested_element_size;
+    deleted_element_header->prev_element_of_type_offset = old_prev_element_offset;
+    deleted_element_header->has_prev_element = old_has_prev_element;
+
+    return 0;
+}
+
+void init_new_element_offsets_for_table_metadata(const void *file_data_pointer,
+                                                 const uint64_t *new_element_offset,
+                                                 struct FileHeader *file_header,
+                                                 struct ElementHeader *allocated_element_header) {
+    if (!file_header->has_table_metadata_elements) {
+        file_header->has_table_metadata_elements = true;
+        file_header->last_table_metadata_element_offset = *new_element_offset;
     } else {
-        logger(LL_DEBUG, __func__, "Page is not big enough to be splitted, allocating it.");
+        struct ElementHeader *last_table_metadata_element_header = (struct ElementHeader *) (
+            (char *) file_data_pointer + file_header->last_table_metadata_element_offset);
+        last_table_metadata_element_header->has_next_element_of_type = true;
+        last_table_metadata_element_header->next_element_of_type_offset = *new_element_offset;
+        allocated_element_header->has_prev_element_of_type = true;
+        allocated_element_header->prev_element_of_type_offset = file_header->last_table_metadata_element_offset;
     }
 }
 
-int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *page_offset, uint64_t *page_size) {
-    logger(LL_DEBUG, __func__, "Allocating page of type %d with min size %ld.", page_type, min_size);
+void init_new_element_offsets_for_table_data(const void *file_data_pointer,
+                                             const uint64_t *new_element_offset,
+                                             struct FileHeader *file_header,
+                                             struct ElementHeader *allocated_element_header) {
+    if (!file_header->has_table_data_elements) {
+        file_header->has_table_data_elements = true;
+        file_header->last_table_data_element_offset = *new_element_offset;
+    } else {
+        struct ElementHeader *last_table_data_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                         file_header->last_table_data_element_offset);
+        last_table_data_element_header->has_next_element_of_type = true;
+        last_table_data_element_header->next_element_of_type_offset = *new_element_offset;
+        allocated_element_header->has_prev_element_of_type = true;
+        allocated_element_header->prev_element_of_type_offset = file_header->last_table_data_element_offset;
+    }
+}
+
+int allocate_element(int fd, uint64_t requested_element_size, enum ElementType element_type, uint64_t *element_offset) {
+    logger(LL_DEBUG, __func__, "Allocating element of type %d with size %ld.", element_type, requested_element_size);
 
     uint64_t file_size = get_file_size(fd);
     if (file_size == -1) {
         return -1;
     }
 
-    if (min_size < MIN_PAGE_SIZE) {
-        min_size = MIN_PAGE_SIZE;
+    if (requested_element_size < ALLOC_SIZE) {
+        requested_element_size = ALLOC_SIZE;
     }
 
     if (file_size == 0) {
-        return allocate_page_in_empty_file(fd, min_size, page_type, page_offset, page_size);
+        return init_empty_file_with_element(fd, requested_element_size, element_type);
     }
 
     void *file_data_pointer;
@@ -186,16 +245,39 @@ int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *
         return -1;
     }
 
-    uint64_t *suitable_deleted_page_offset;
-    int find_suitable_deleted_page_result = find_suitable_deleted_page(file_data_pointer, file_size, min_size,
-                                                                       suitable_deleted_page_offset);
+    uint64_t *suitable_deleted_element_offset;
+    int find_suitable_deleted_element_offset_result = find_suitable_deleted_element_offset(file_data_pointer,
+                                                                                           requested_element_size,
+                                                                                           suitable_deleted_element_offset);
 
-    if (find_suitable_deleted_page_result == 0) {
-        logger(LL_DEBUG, __func__, "Found suitable deleted page of size %ld.", min_size);
-        split_deleted_page_for_allocation(file_data_pointer, *suitable_deleted_page_offset, min_size);
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
 
-        *page_offset = *suitable_deleted_page_offset;
-        *page_size = min_size;
+    if (find_suitable_deleted_element_offset_result == 0) {
+        logger(LL_DEBUG, __func__, "Found suitable deleted page of size %ld.", requested_element_size);
+        split_deleted_element_for_allocation(file_data_pointer, *suitable_deleted_element_offset,
+                                             requested_element_size);
+
+        *element_offset = *suitable_deleted_element_offset;
+
+        struct ElementHeader *allocated_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                   *suitable_deleted_element_offset);
+        allocated_element_header->element_size = requested_element_size;
+        allocated_element_header->element_type = element_type;
+
+        switch (element_type) {
+            case ET_DELETED:
+                logger(LL_ERROR, __func__, "Cannot allocate deleted element.");
+                return -1;
+            case ET_TABLE_METADATA:
+                init_new_element_offsets_for_table_metadata(file_data_pointer, suitable_deleted_element_offset,
+                                                            file_header, allocated_element_header);
+                break;
+            case ET_TABLE_DATA:
+                init_new_element_offsets_for_table_data(file_data_pointer, suitable_deleted_element_offset, file_header,
+                                                        allocated_element_header);
+                break;
+        }
+
         int munmap_result = munmap_file(file_data_pointer, file_size);
         if (munmap_result == -1) {
             return -1;
@@ -203,34 +285,45 @@ int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *
         return 0;
     }
 
-    uint64_t current_offset = 0;
-
-    while (current_offset < file_size) {
-        struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + current_offset);
-
-        if (page_header->is_deleted && page_header->page_size <= min_size) {
-
+    logger(LL_DEBUG, __func__, "Could not find suitable deleted page of size %ld.", requested_element_size);
+    if (file_size - file_header->last_element_offset < requested_element_size) {
+        logger(LL_DEBUG, __func__, "File size is not enough to allocate new page.");
+        int change_file_size_result = change_file_size(fd, file_size + ALLOC_SIZE);
+        if (change_file_size_result == -1) {
+            return -1;
         }
     }
 
-    logger(LL_DEBUG, __func__, "Found deleted page of size %ld.", page_header->page_size);
+    *element_offset = file_header->last_element_offset;
 
-    uint64_t original_page_size = page_header->page_size;
-    if (original_page_size - min_size >= MIN_PAGE_SIZE) {
-        logger(LL_DEBUG, __func__, "Page is big enough to be splitted, splitting it.");
-        page_header->page_size = min_size;
-        struct PageHeader *new_page_header = (struct PageHeader *) ((char *) page_header + min_size);
-        init_page_header(new_page_header, page_type, original_page_size - min_size, true);
-    } else {
-        logger(LL_DEBUG, __func__, "Page is not big enough to be splitted, allocating it.");
-        page_header->page_size = original_page_size;
+    struct ElementHeader *allocated_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                               file_header->last_element_offset);
+
+    allocated_element_header->element_size = requested_element_size;
+    allocated_element_header->element_type = element_type;
+    allocated_element_header->has_next_element_of_type = false;
+
+    struct ElementHeader *last_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                          file_header->last_element_offset);
+
+    allocated_element_header->has_prev_element = true;
+
+
+    switch (element_type) {
+        case ET_DELETED:
+            logger(LL_ERROR, __func__, "Cannot allocate deleted element.");
+            return -1;
+        case ET_TABLE_METADATA:
+            init_new_element_offsets_for_table_metadata(file_data_pointer, suitable_deleted_element_offset, file_header,
+                                                        allocated_element_header);
+            break;
+        case ET_TABLE_DATA:
+            init_new_element_offsets_for_table_data(file_data_pointer, suitable_deleted_element_offset, file_header,
+                                                    allocated_element_header);
+            break;
     }
 
-    *page_offset = (char *) page_header - (char *) file_data_pointer;
-    *page_size = page_header->page_size;
-    init_page_header((struct PageHeader *) (page_header), page_type, page_header->page_size, false);
-
-    sync_file(fd);
+    file_header->last_element_offset += requested_element_size;
 
     int munmap_result = munmap_file(file_data_pointer, file_size);
     if (munmap_result == -1) {
@@ -240,11 +333,11 @@ int allocate_page(int fd, uint64_t min_size, enum PageType page_type, uint64_t *
     return 0;
 }
 
-int delete_page(int fd, uint64_t page_offset) {
-    logger(LL_DEBUG, __func__, "Deleting page at offset %ld.", page_offset);
+int delete_element(int fd, uint64_t element_offset) {
+    logger(LL_DEBUG, __func__, "Deleting element at offset %ld.", element_offset);
 
     uint64_t file_size = get_file_size(fd);
-    if (file_size == -1) {
+    if (file_size == 0) {
         return -1;
     }
 
@@ -255,10 +348,17 @@ int delete_page(int fd, uint64_t page_offset) {
         return -1;
     }
 
-    struct PageHeader *page_header = (struct PageHeader *) ((char *) file_data_pointer + page_offset);
-    page_header->is_deleted = true;
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
 
-    sync_file(fd);
+    if (element_header->element_type == ET_DELETED) {
+        logger(LL_DEBUG, __func__, "Element is already deleted.");
+        return -1;
+    }
+
+    element_header->element_type = ET_DELETED;
+
+
 
     int munmap_result = munmap_file(file_data_pointer, file_size);
     if (munmap_result == -1) {
