@@ -14,6 +14,17 @@
 #define MIN_PAGE_SIZE 65536
 #define TABLE_SCHEMA_PAGE_SIZE 65536
 
+struct FileHeader {
+    bool has_deleted_pages;
+    uint64_t first_deleted_page_offset;
+    bool has_table_metadata_pages;
+    uint64_t last_table_metadata_page_offset;
+    bool has_table_data_pages;
+    uint64_t last_table_data_page_offset;
+};
+
+#define FIRST_PAGE_OFFSET sizeof(struct FileHeader)
+
 enum PageType {
     PT_DELETED_PAGE,
     PT_TABLE_METADATA_PAGE,
@@ -22,8 +33,14 @@ enum PageType {
 
 struct PageHeader {
     bool has_elements;
-    uint64_t prev_page_offset;
-    uint64_t next_same_type_page_offset;
+    /**
+     * 0 - page is first of its type
+     */
+    uint64_t prev_page_of_type_offset;
+    /**
+     * 0 - page is last of its type
+     */
+    uint64_t next_page_of_type_offset;
     uint64_t page_size;
     enum PageType page_type;
 };
@@ -33,6 +50,7 @@ struct TablePageSubHeader {
 };
 
 struct TableMetadataPageSubHeader {
+
 };
 
 struct PageItem {
