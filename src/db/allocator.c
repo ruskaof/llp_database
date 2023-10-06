@@ -92,116 +92,160 @@ int find_suitable_deleted_element_offset(void *file_data_pointer, uint64_t reque
     return -1;
 }
 
+void erase_neighbors_data_about_element(void *file_data_pinter, uint64_t element_offset) {
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pinter;
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pinter + element_offset);
+
+    if (element_header->has_prev_element_of_type) {
+        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pinter +
+                                                                              element_header->prev_element_of_type_offset);
+        prev_element_header->has_next_element_of_type = element_header->has_next_element_of_type;
+        prev_element_header->next_element_of_type_offset = element_header->next_element_of_type_offset;
+    }
+
+    if (element_header->has_next_element_of_type) {
+        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pinter +
+                                                                              element_header->next_element_of_type_offset);
+        next_element_header->has_prev_element_of_type = element_header->has_prev_element_of_type;
+        next_element_header->prev_element_of_type_offset = element_header->prev_element_of_type_offset;
+    }
+
+    switch (element_header->element_type) {
+        case ET_DELETED:
+            if (file_header->first_deleted_element_offset == element_offset) {
+                file_header->has_deleted_elements = element_header->has_next_element_of_type;
+                file_header->first_deleted_element_offset = element_header->next_element_of_type_offset;
+            }
+            break;
+        case ET_TABLE_METADATA:
+            if (file_header->last_table_metadata_element_offset == element_offset) {
+                file_header->has_table_metadata_elements = element_header->has_prev_element_of_type;
+                file_header->last_table_metadata_element_offset = element_header->prev_element_of_type_offset;
+            }
+            break;
+        case ET_TABLE_DATA:
+            if (file_header->last_table_data_element_offset == element_offset) {
+                file_header->has_table_data_elements = element_header->has_prev_element_of_type;
+                file_header->last_table_data_element_offset = element_header->prev_element_of_type_offset;
+            }
+            break;
+    }
+
+//    if (file_header->last_element_offset == element_offset) {
+//        file_header->last_element_offset = element_header->prev_element_offset; // fixme check this on deletion of first element
+//    }
+//
+//    if (element_offset != file_header->last_element_offset) {
+//        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pinter +
+//                                                                              element_header->prev_element_offset);
+//
+//        next_element_header->has_prev_element = element_header->has_prev_element;
+//        next_element_header->prev_element_offset = element_header->prev_element_offset;
+//    }
+}
+
 void prepare_deleted_element_for_allocation(void *file_data_pointer, uint64_t deleted_element_offset,
                                             uint64_t requested_element_size) {
+    erase_neighbors_data_about_element(file_data_pointer, deleted_element_offset);
+
     struct ElementHeader *deleted_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                              deleted_element_offset);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
 
     uint64_t original_element_size = deleted_element_header->element_size;
-    uint64_t old_prev_element_offset = deleted_element_header->prev_element_offset;
-    uint64_t old_has_prev_element = deleted_element_header->has_prev_element;
 
     if (original_element_size < requested_element_size ||
         original_element_size - requested_element_size < MIN_ELEMENT_SIZE) {
         logger(LL_DEBUG, __func__, "Deleted element is too small to be splitted.");
-
-        if (deleted_element_header->has_prev_element) {
-            struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                                  deleted_element_header->prev_element_offset);
-            prev_element_header->has_next_element_of_type = deleted_element_header->has_next_element_of_type;
-            prev_element_header->next_element_of_type_offset = deleted_element_header->next_element_of_type_offset;
-        }
-
-        if (deleted_element_header->has_next_element_of_type) {
-            struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                                  deleted_element_header->next_element_of_type_offset);
-            next_element_header->has_prev_element_of_type = deleted_element_header->has_prev_element_of_type;
-            next_element_header->prev_element_of_type_offset = deleted_element_header->prev_element_of_type_offset;
-        }
-
-        if (file_header->first_deleted_element_offset == deleted_element_offset) {
-            file_header->has_deleted_elements = deleted_element_header->has_next_element_of_type;
-            file_header->first_deleted_element_offset = deleted_element_header->next_element_of_type_offset;
-        }
+        return;
     }
 
-    bool old_has_next_element_of_type = deleted_element_header->has_next_element_of_type;
-    uint64_t old_next_element_of_type_offset = deleted_element_header->next_element_of_type_offset;
-    bool old_has_prev_element_of_type = deleted_element_header->has_prev_element_of_type;
-    uint64_t old_prev_element_of_type_offset = deleted_element_header->prev_element_of_type_offset;
+    logger(LL_DEBUG, __func__, "Splitting deleted element.");
 
-    uint64_t split_element_offset = deleted_element_offset + requested_element_size;
+    uint64_t new_element_offset = deleted_element_offset + requested_element_size;
+    uint64_t new_element_size = original_element_size - requested_element_size;
+    struct ElementHeader *new_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                         new_element_offset);
 
-    struct ElementHeader *split_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                           split_element_offset);
-    split_element_header->element_type = ET_DELETED;
-    split_element_header->prev_element_offset = deleted_element_offset;
-    split_element_header->has_prev_element = true;
-
-    split_element_header->has_next_element_of_type = old_has_next_element_of_type;
-    split_element_header->next_element_of_type_offset = old_next_element_of_type_offset;
-    split_element_header->has_prev_element_of_type = old_has_prev_element_of_type;
-    split_element_header->prev_element_of_type_offset = old_prev_element_of_type_offset;
-
-    if (old_has_next_element_of_type) {
-        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                              old_next_element_of_type_offset);
-
-        next_element_header->has_prev_element_of_type = true;
-        next_element_header->prev_element_of_type_offset = split_element_offset;
+    new_element_header->element_size = new_element_size;
+    new_element_header->element_type = ET_DELETED;
+    if (file_header->has_deleted_elements) {
+        struct ElementHeader *first_deleted_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                       file_header->first_deleted_element_offset);
+        new_element_header->has_next_element_of_type = true;
+        new_element_header->next_element_of_type_offset = file_header->first_deleted_element_offset;
+        new_element_header->has_prev_element_of_type = false;
+        first_deleted_element_header->has_prev_element_of_type = true;
+        first_deleted_element_header->prev_element_of_type_offset = new_element_offset;
+    } else {
+        new_element_header->has_next_element_of_type = false;
+        new_element_header->has_prev_element_of_type = false;
     }
-
-    if (old_has_prev_element_of_type) {
-        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                              old_prev_element_of_type_offset);
-
-        prev_element_header->has_next_element_of_type = true;
-        prev_element_header->next_element_of_type_offset = split_element_offset;
-    }
-
+    file_header->has_deleted_elements = true;
+    file_header->first_deleted_element_offset = new_element_offset;
 
     deleted_element_header->element_size = requested_element_size;
-    deleted_element_header->prev_element_of_type_offset = old_prev_element_offset;
-    deleted_element_header->has_prev_element = old_has_prev_element;
 }
 
 void init_new_element_offsets_for_table_metadata(const void *file_data_pointer,
                                                  const uint64_t new_element_offset,
                                                  struct FileHeader *file_header,
                                                  struct ElementHeader *allocated_element_header) {
-    if (!file_header->has_table_metadata_elements) {
-        file_header->has_table_metadata_elements = true;
-        file_header->last_table_metadata_element_offset = new_element_offset;
-    } else {
+    if (file_header->has_table_metadata_elements) {
         struct ElementHeader *last_table_metadata_element_header = (struct ElementHeader *) (
             (char *) file_data_pointer + file_header->last_table_metadata_element_offset);
         last_table_metadata_element_header->has_next_element_of_type = true;
         last_table_metadata_element_header->next_element_of_type_offset = new_element_offset;
         allocated_element_header->has_prev_element_of_type = true;
         allocated_element_header->prev_element_of_type_offset = file_header->last_table_metadata_element_offset;
+    } else {
+        allocated_element_header->has_prev_element_of_type = false;
     }
 
+    file_header->has_table_metadata_elements = true;
     file_header->last_table_metadata_element_offset = new_element_offset;
+    allocated_element_header->has_next_element_of_type = false;
 }
 
 void init_new_element_offsets_for_table_data(const void *file_data_pointer,
                                              const uint64_t new_element_offset,
                                              struct FileHeader *file_header,
                                              struct ElementHeader *allocated_element_header) {
-    if (!file_header->has_table_data_elements) {
-        file_header->has_table_data_elements = true;
-        file_header->last_table_data_element_offset = new_element_offset;
-    } else {
+    if (file_header->has_table_data_elements) {
         struct ElementHeader *last_table_data_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                                          file_header->last_table_data_element_offset);
         last_table_data_element_header->has_next_element_of_type = true;
         last_table_data_element_header->next_element_of_type_offset = new_element_offset;
         allocated_element_header->has_prev_element_of_type = true;
         allocated_element_header->prev_element_of_type_offset = file_header->last_table_data_element_offset;
+    } else {
+        allocated_element_header->has_prev_element_of_type = false;
     }
 
+    file_header->has_table_data_elements = true;
     file_header->last_table_data_element_offset = new_element_offset;
+    allocated_element_header->has_next_element_of_type = false;
+}
+
+void init_new_element_offsets(const void *file_data_pointer,
+                              const uint64_t new_element_offset) {
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    struct ElementHeader *allocated_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                               new_element_offset);
+
+    switch (allocated_element_header->element_type) {
+        case ET_DELETED:
+            logger(LL_ERROR, __func__, "Cannot allocate deleted element.");
+            break;
+        case ET_TABLE_METADATA:
+            init_new_element_offsets_for_table_metadata(file_data_pointer, new_element_offset,
+                                                        file_header, allocated_element_header);
+            break;
+        case ET_TABLE_DATA:
+            init_new_element_offsets_for_table_data(file_data_pointer, new_element_offset, file_header,
+                                                    allocated_element_header);
+            break;
+    }
 }
 
 int allocate_element(int fd, uint64_t requested_element_size, enum ElementType element_type, uint64_t *element_offset) {
