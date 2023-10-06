@@ -326,41 +326,45 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     return 0;
 }
 
-void reset_deleted_element_typed_neighbors_offset(void *file_data_pointer, uint64_t element_offset) {
-    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
 
-    if (element_header->has_prev_element_of_type) {
-        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                              element_header->prev_element_of_type_offset);
-        if (element_header->has_next_element_of_type) {
-            prev_element_header->has_next_element_of_type = true;
-            prev_element_header->next_element_of_type_offset = element_header->next_element_of_type_offset;
-        } else {
-            prev_element_header->has_next_element_of_type = false;
-        }
-    }
-
-    if (element_header->has_next_element_of_type) {
-        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                              element_header->next_element_of_type_offset);
-        next_element_header->has_prev_element = true;
-        next_element_header->prev_element_offset = element_header->prev_element_offset;
-
-        if (element_header->has_prev_element_of_type) {
-            next_element_header->has_prev_element_of_type = true;
-            next_element_header->prev_element_of_type_offset = element_header->prev_element_of_type_offset;
-        } else {
-            next_element_header->has_prev_element_of_type = false;
-        }
-    }
+void
+merge_deleted_with_next(const void *file_data_pointer, uint64_t element_offset, uint64_t next_deleted_element_offset) {
+    logger(LL_DEBUG, __func__, "Next element is also deleted. Merging.");
 
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
-    if (file_header->first_deleted_element_offset == element_offset) {
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
+    struct ElementHeader *next_deleted_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                  next_deleted_element_offset);
+
+    element_header->element_size += next_deleted_element_header->element_size;
+
+    if (next_deleted_element_header->has_prev_element_of_type) {
+        struct ElementHeader *prev_typed_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                    next_deleted_element_header->prev_element_of_type_offset);
         if (element_header->has_next_element_of_type) {
-            file_header->first_deleted_element_offset = element_header->next_element_of_type_offset;
+            prev_typed_element_header->has_next_element_of_type = true;
+            prev_typed_element_header->next_element_of_type_offset = next_deleted_element_header->next_element_of_type_offset;
         } else {
-            file_header->has_deleted_elements = false;
+            prev_typed_element_header->has_next_element_of_type = false;
         }
+    }
+
+    if (next_deleted_element_header->has_next_element_of_type) {
+        struct ElementHeader *next_next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                                   next_deleted_element_header->next_element_of_type_offset);
+        next_next_element_header->has_prev_element = true;
+        next_next_element_header->prev_element_offset = next_deleted_element_header->prev_element_offset;
+
+        if (element_header->has_prev_element_of_type) {
+            next_next_element_header->has_prev_element_of_type = true;
+            next_next_element_header->prev_element_of_type_offset = next_deleted_element_header->prev_element_of_type_offset;
+        } else {
+            next_next_element_header->has_prev_element_of_type = false;
+        }
+    }
+
+    if (file_header->first_deleted_element_offset == next_deleted_element_offset) {
+        file_header->first_deleted_element_offset = element_offset;
     }
 }
 
@@ -375,9 +379,8 @@ void merge_deleted_element(void *file_data_pointer, uint64_t element_offset) {
         struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                               next_element_offset);
         if (next_element_header->element_type == ET_DELETED) {
-            logger(LL_DEBUG, __func__, "Next element is also deleted. Merging.");
-            element_header->element_size += next_element_header->element_size;
-            reset_deleted_element_typed_neighbors_offset(file_data_pointer, next_element_offset);
+            merge_deleted_with_next(file_data_pointer, element_offset, file_header, element_header, next_element_offset,
+                                    next_element_header);
         }
     }
 
@@ -386,13 +389,9 @@ void merge_deleted_element(void *file_data_pointer, uint64_t element_offset) {
         struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                               prev_element_offset);
         if (prev_element_header->element_type == ET_DELETED) {
-            logger(LL_DEBUG, __func__, "Previous element is also deleted. Merging.");
-            prev_element_header->element_size += element_header->element_size;
-        } else {
-            reset_deleted_element_typed_neighbors_offset(file_data_pointer, element_offset);
+            merge_deleted_with_next(file_data_pointer, prev_element_offset, file_header, prev_element_header,
+                                    element_offset, element_header);
         }
-    } else {
-        reset_deleted_element_typed_neighbors_offset(file_data_pointer, element_offset);
     }
 }
 
