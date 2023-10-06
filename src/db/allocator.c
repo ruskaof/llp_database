@@ -7,7 +7,8 @@
 
 #include "../utils/logging.h"
 
-int init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType element_type) {
+int
+init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType element_type, uint64_t *element_offset) {
     logger(LL_DEBUG, __func__, "Initializing empty file.");
 
     int change_file_size_result = change_file_size(fd, ALLOC_SIZE);
@@ -49,6 +50,8 @@ int init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType
     element_header->has_next_element_of_type = false;
     element_header->has_prev_element_of_type = false;
     element_header->has_prev_element = false;
+
+    *element_offset = FIRST_ELEMENT_OFFSET;
 
     int munmap_result = munmap_file(file_data_pointer, ALLOC_SIZE, fd);
     if (munmap_result == -1) {
@@ -211,7 +214,7 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     }
 
     if (file_size == 0) {
-        return init_empty_file_with_element(fd, requested_element_size, element_type);
+        return init_empty_file_with_element(fd, requested_element_size, element_type, element_offset);
     }
 
     void *file_data_pointer;
@@ -296,6 +299,7 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     allocated_element_header->has_next_element_of_type = false;
 
     allocated_element_header->has_prev_element = true;
+    allocated_element_header->prev_element_offset = file_header->last_element_offset;
 
 
     switch (element_type) {
@@ -322,7 +326,76 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     return 0;
 }
 
-// todo add merging of deleted elements
+void reset_deleted_element_typed_neighbors_offset(void *file_data_pointer, uint64_t element_offset) {
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
+
+    if (element_header->has_prev_element_of_type) {
+        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              element_header->prev_element_of_type_offset);
+        if (element_header->has_next_element_of_type) {
+            prev_element_header->has_next_element_of_type = true;
+            prev_element_header->next_element_of_type_offset = element_header->next_element_of_type_offset;
+        } else {
+            prev_element_header->has_next_element_of_type = false;
+        }
+    }
+
+    if (element_header->has_next_element_of_type) {
+        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              element_header->next_element_of_type_offset);
+        next_element_header->has_prev_element = true;
+        next_element_header->prev_element_offset = element_header->prev_element_offset;
+
+        if (element_header->has_prev_element_of_type) {
+            next_element_header->has_prev_element_of_type = true;
+            next_element_header->prev_element_of_type_offset = element_header->prev_element_of_type_offset;
+        } else {
+            next_element_header->has_prev_element_of_type = false;
+        }
+    }
+
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    if (file_header->first_deleted_element_offset == element_offset) {
+        if (element_header->has_next_element_of_type) {
+            file_header->first_deleted_element_offset = element_header->next_element_of_type_offset;
+        } else {
+            file_header->has_deleted_elements = false;
+        }
+    }
+}
+
+void merge_deleted_element(void *file_data_pointer, uint64_t element_offset) {
+    logger(LL_DEBUG, __func__, "Merging deleted element at offset %ld.", element_offset);
+
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
+
+    if (file_header->last_element_offset != element_offset) {
+        uint64_t next_element_offset = element_offset + element_header->element_size;
+        struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              next_element_offset);
+        if (next_element_header->element_type == ET_DELETED) {
+            logger(LL_DEBUG, __func__, "Next element is also deleted. Merging.");
+            element_header->element_size += next_element_header->element_size;
+            reset_deleted_element_typed_neighbors_offset(file_data_pointer, next_element_offset);
+        }
+    }
+
+    if (element_offset != FIRST_ELEMENT_OFFSET) {
+        uint64_t prev_element_offset = element_header->prev_element_offset;
+        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              prev_element_offset);
+        if (prev_element_header->element_type == ET_DELETED) {
+            logger(LL_DEBUG, __func__, "Previous element is also deleted. Merging.");
+            prev_element_header->element_size += element_header->element_size;
+        } else {
+            reset_deleted_element_typed_neighbors_offset(file_data_pointer, element_offset);
+        }
+    } else {
+        reset_deleted_element_typed_neighbors_offset(file_data_pointer, element_offset);
+    }
+}
+
 int delete_element(int fd, uint64_t element_offset) {
     logger(LL_DEBUG, __func__, "Deleting element at offset %ld.", element_offset);
 
@@ -341,24 +414,33 @@ int delete_element(int fd, uint64_t element_offset) {
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
 
-    if (element_header->element_type == ET_DELETED) {
-        logger(LL_DEBUG, __func__, "Element is already deleted.");
-        return -1;
+    switch (element_header->element_type) {
+        case ET_DELETED:
+            logger(LL_DEBUG, __func__, "Element is already deleted.");
+            return -1;
+        case ET_TABLE_METADATA:
+            if (file_header->has_table_metadata_elements &&
+                file_header->last_table_metadata_element_offset == element_offset) {
+                if (element_header->has_prev_element_of_type) {
+                    file_header->last_table_metadata_element_offset = element_header->prev_element_of_type_offset;
+                } else {
+                    file_header->has_table_metadata_elements = false;
+                }
+            }
+            break;
+        case ET_TABLE_DATA:
+            if (file_header->has_table_data_elements && file_header->last_table_data_element_offset == element_offset) {
+                if (element_header->has_prev_element_of_type) {
+                    file_header->last_table_data_element_offset = element_header->prev_element_of_type_offset;
+                } else {
+                    file_header->has_table_data_elements = false;
+                }
+            }
+            break;
     }
+
 
     element_header->element_type = ET_DELETED;
-
-    if (element_header->has_prev_element_of_type) {
-        struct ElementHeader *prev_element_of_type_header =
-            (struct ElementHeader *) ((char *) file_data_pointer + element_header->prev_element_of_type_offset);
-        prev_element_of_type_header->next_element_of_type_offset = element_header->next_element_of_type_offset;
-    }
-
-    if (element_header->has_next_element_of_type) {
-        struct ElementHeader *next_element_of_type_header =
-            (struct ElementHeader *) ((char *) file_data_pointer + element_header->next_element_of_type_offset);
-        next_element_of_type_header->prev_element_of_type_offset = element_header->prev_element_of_type_offset;
-    }
 
     if (file_header->has_deleted_elements) {
         struct ElementHeader *first_deleted_element_header =
@@ -374,6 +456,8 @@ int delete_element(int fd, uint64_t element_offset) {
         element_header->has_next_element_of_type = false;
         element_header->has_prev_element_of_type = false;
     }
+
+    merge_deleted_element(file_data_pointer, element_offset);
 
     int munmap_result = munmap_file(file_data_pointer, file_size, fd);
     if (munmap_result == -1) {
