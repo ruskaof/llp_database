@@ -35,8 +35,11 @@ void print_file(int fd) {
     printf("\n");
 
     struct ElementHeader *element_header = (struct ElementHeader *) (file_data_pointer + FIRST_ELEMENT_OFFSET);
+    uint64_t element_header_number = 0;
+
     while ((char *) element_header <= (char *) file_data_pointer + file_header->last_element_offset) {
         printf("Element header:\n");
+        printf("Element number: %lu\n", element_header_number++);
         printf("Element offset: %lu\n", ((char *) element_header) - ((char *) file_data_pointer));
         printf("Element size: %lu\n", element_header->element_size);
         printf("Element type: %d\n", element_header->element_type);
@@ -454,7 +457,7 @@ void allocator_test_with_insertion_in_deleted_space() {
     uint64_t first_allocated_element_offset;
     allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &second_allocated_element_offset);
+    allocate_element(fd, MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
     allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
     delete_element(fd, second_allocated_element_offset);

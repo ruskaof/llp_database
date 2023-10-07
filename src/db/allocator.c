@@ -254,8 +254,12 @@ void prepare_deleted_element_for_allocation(void *file_data_pointer,
                                                                          new_element_offset);
     new_element_header->element_size = new_element_size;
     new_element_header->element_type = ET_DELETED;
+    new_element_header->has_prev_element = true;
+    new_element_header->prev_element_offset = deleted_element_offset;
 
     init_new_element_offsets(ET_DELETED, new_element_offset, file_data_pointer);
+
+    deleted_element_header->element_size = requested_element_size;
 }
 
 int add_file_space_for_new_element(int fd, int mmap_result, uint64_t *file_size, void **file_data_pointer) {
