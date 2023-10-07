@@ -425,6 +425,13 @@ int delete_element(int fd, uint64_t element_offset) {
 
         if (prev_element_header->element_type == ET_DELETED) {
             logger(LL_DEBUG, __func__, "Previous element is deleted. Merging.");
+
+            if (file_header->last_element_offset != element_offset) {
+                set_next_element_previous_to(file_data_pointer, element_offset, element_header->prev_element_offset);
+            } else {
+                file_header->last_element_offset = element_header->prev_element_offset;
+            }
+
             prev_element_header->element_size += element_header->element_size;
             erase_neighbors_data_about_element(file_data_pointer, element_offset);
         } else {

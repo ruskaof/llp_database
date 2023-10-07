@@ -519,6 +519,50 @@ void allocator_test_on_merging_deleted1() {
     delete_file("/home/ruskaof/Desktop/testdb2");
 }
 
+
+void allocator_test_on_merging_deleted2() {
+    int fd = open_file("/home/ruskaof/Desktop/testdb2");
+    uint64_t first_allocated_element_offset;
+    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
+    uint64_t second_allocated_element_offset;
+    allocate_element(fd, MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
+    uint64_t third_allocated_element_offset;
+    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
+
+    delete_element(fd, first_allocated_element_offset);
+
+    delete_element(fd, second_allocated_element_offset);
+
+
+    uint64_t file_size = get_file_size(fd);
+    void *file_data_pointer;
+    mmap_file(fd, &file_data_pointer, 0, file_size);
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    assert(file_header->last_element_offset == third_allocated_element_offset);
+    assert(file_header->has_table_data_elements);
+    assert(file_header->last_table_data_element_offset == third_allocated_element_offset);
+    assert(file_header->has_deleted_elements);
+    assert(file_header->last_deleted_element_offset == first_allocated_element_offset);
+
+    uint64_t min_element_size = MIN_ELEMENT_SIZE;
+    uint64_t expected_merged_size = min_element_size * 5 + sizeof(struct ElementHeader) * 2;
+    assert_element_on_offset(file_data_pointer,
+                             first_allocated_element_offset,
+                             expected_merged_size,
+                             ET_DELETED,
+                             false, 0,
+                             false, 0, 0);
+    assert_element_on_offset(file_data_pointer,
+                             third_allocated_element_offset,
+                             MIN_ELEMENT_SIZE * 2 + sizeof(struct ElementHeader),
+                             ET_TABLE_DATA,
+                             false, 0,
+                             false, 0, first_allocated_element_offset);
+
+    delete_file("/home/ruskaof/Desktop/testdb2");
+}
+
+
 int main() {
     allocator_test_single_type();
     print_separator();
@@ -531,4 +575,6 @@ int main() {
     allocator_test_with_insertion_in_deleted_space();
     print_separator();
     allocator_test_on_merging_deleted1();
+    print_separator();
+    allocator_test_on_merging_deleted2();
 }
