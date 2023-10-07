@@ -12,7 +12,17 @@
 #include <assert.h>
 #include <stdio.h>
 
+#if defined(__linux__) || defined(__APPLE__)
+
 #define TEST_FILE_LOCATION "/home/ruskaof/Desktop/testdb2"
+
+#endif
+
+#if defined(_WIN32)
+
+#define TEST_FILE_LOCATION "C:\\Users\\199-4\\Desktop\\testdb2"
+
+#endif
 
 void print_separator() {
     printf("-----------------------------------------------------------------------\n");
