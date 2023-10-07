@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.23)
 project(llp_database C)
 
 set(CMAKE_C_STANDARD 17)
