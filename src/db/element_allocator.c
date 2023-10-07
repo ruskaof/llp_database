@@ -2,7 +2,7 @@
 // Created by ruskaof on 2/10/23.
 //
 
-#include "allocator.h"
+#include "element_allocator.h"
 #include "file.h"
 
 #include "../utils/logging.h"
@@ -308,9 +308,6 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     requested_element_size += sizeof(struct ElementHeader);
 
     uint64_t file_size = get_file_size(fd);
-    if (file_size == -1) {
-        return -1;
-    }
 
     if (requested_element_size < MIN_ELEMENT_SIZE) {
         requested_element_size = MIN_ELEMENT_SIZE;

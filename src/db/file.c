@@ -92,7 +92,7 @@ int delete_file(const char *filename) {
 }
 
 uint64_t get_file_size(int fd) {
-    uint64_t file_size = lseek(fd, 0, SEEK_END);
+    off_t file_size = lseek(fd, 0, SEEK_END);
 
     if (file_size == -1) {
         logger(LL_ERROR, __func__, "Could not get file size with descriptor %d.", fd);
