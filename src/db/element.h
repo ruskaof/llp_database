@@ -14,7 +14,7 @@
 #define ALLOC_SIZE 65536
 struct FileHeader {
     bool has_deleted_elements;
-    uint64_t first_deleted_element_offset;
+    uint64_t last_deleted_element_offset;
     bool has_table_metadata_elements;
     uint64_t last_table_metadata_element_offset;
     bool has_table_data_elements;
@@ -33,10 +33,10 @@ enum ElementType {
 struct ElementHeader {
     uint64_t element_size;
     enum ElementType element_type;
-    bool has_next_element_of_type;
-    uint64_t next_element_of_type_offset;
     bool has_prev_element_of_type;
     uint64_t prev_element_of_type_offset;
+    bool has_next_element_of_type;
+    uint64_t next_element_of_type_offset;
     bool has_prev_element;
     uint64_t prev_element_offset;
 };
