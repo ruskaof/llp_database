@@ -59,7 +59,7 @@ void print_file(int fd) {
     munmap_file(file_data_pointer, file_size, fd);
 }
 
-void simple_table_insertion_test() {
+void table_operations_simple_insertions() {
     int fd = open_file(TEST_FILE_LOCATION);
 
     uint64_t first_table_columns_count = 2;
@@ -114,6 +114,52 @@ void simple_table_insertion_test() {
     delete_file(TEST_FILE_LOCATION);
 }
 
+void table_operations_simple_deletions() {
+    int fd = open_file(TEST_FILE_LOCATION);
+
+    uint64_t first_table_columns_count = 2;
+    struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    operation_create_table(fd, "test_table1", columns, first_table_columns_count);
+    free(columns);
+
+    uint64_t second_table_columns_count = 3;
+    columns = malloc(second_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    columns[2].type = TD_STRING;
+    strcpy(columns[2].name, "test_column3");
+    operation_create_table(fd, "test_table2", columns, second_table_columns_count);
+    free(columns);
+
+    operation_drop_table(fd, "test_table1");
+
+    uint64_t table_metadata_element_offset;
+    assert(find_table_metadata_offset(fd, "test_table1", &table_metadata_element_offset) == -1);
+
+    assert(find_table_metadata_offset(fd, "test_table2", &table_metadata_element_offset) == 0);
+
+    operation_drop_table(fd, "test_table2");
+
+    assert(find_table_metadata_offset(fd, "test_table2", &table_metadata_element_offset) == -1);
+
+
+    void *file_data_pointer;
+    mmap_file(fd, &file_data_pointer, 0, get_file_size(fd));
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    assert(!file_header->has_table_metadata_elements);
+
+    munmap_file(file_data_pointer, get_file_size(fd), fd);
+    close_file(fd);
+    delete_file(TEST_FILE_LOCATION);
+}
+
 int main() {
-    simple_table_insertion_test();
+    table_operations_simple_insertions();
+    table_operations_simple_deletions();
 }
