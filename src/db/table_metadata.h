@@ -18,7 +18,7 @@ struct TableMetadataElement {
     struct TableColumn columns[];
 };
 
-int find_table_metadata_offset(int fd, char *table_name, uint64_t *table_metadata_offset);
+int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset);
 
 
 

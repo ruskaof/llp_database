@@ -14,7 +14,7 @@ uint64_t get_table_metadata_element_size(struct TableMetadataElement *table_meta
     return sizeof(struct TableMetadataElement) + table_metadata_element->columns_count * sizeof(struct TableColumn);
 }
 
-int operation_create_table(int fd, char *table_name, struct TableColumn *columns, uint64_t columns_count) {
+int operation_create_table(char *table_name, struct TableColumn *columns, uint64_t columns_count) {
     if (columns_count == 0) {
         logger(LL_ERROR, __func__, "Cannot create table with 0 columns");
         return -1;
@@ -26,7 +26,7 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
     }
 
     uint64_t existing_table_metadata_offset;
-    if (find_table_metadata_offset(fd, table_name, &existing_table_metadata_offset) == 0) {
+    if (find_table_metadata_offset(table_name, &existing_table_metadata_offset) == 0) {
         logger(LL_ERROR, __func__, "Cannot create table with name %s because it already exists", table_name);
         return -1;
     }
@@ -40,7 +40,7 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
 
     uint64_t table_metadata_element_size = get_table_metadata_element_size(table_metadata_element);
     uint64_t table_metadata_element_offset;
-    int allocate_result = allocate_element(fd, table_metadata_element_size, ET_TABLE_METADATA,
+    int allocate_result = allocate_element(table_metadata_element_size, ET_TABLE_METADATA,
                                            &table_metadata_element_offset);
 
     if (allocate_result == -1) {
@@ -49,7 +49,7 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
     }
 
     void *file_data_pointer;
-    int mmap_result = mmap_file(fd, &file_data_pointer, 0, get_file_size(fd));
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
     if (mmap_result == -1) {
         logger(LL_ERROR, __func__, "Cannot mmap file");
         return -1;
@@ -63,14 +63,14 @@ int operation_create_table(int fd, char *table_name, struct TableColumn *columns
     return 0;
 }
 
-int operation_drop_table(int fd, char *table_name) {
+int operation_drop_table(char *table_name) {
     uint64_t table_metadata_element_offset;
-    if (find_table_metadata_offset(fd, table_name, &table_metadata_element_offset) == -1) {
+    if (find_table_metadata_offset(table_name, &table_metadata_element_offset) == -1) {
         logger(LL_ERROR, __func__, "Cannot drop table with name %s because it does not exist", table_name);
         return -1;
     }
 
-    int delete_result = delete_element(fd, table_metadata_element_offset);
+    int delete_result = delete_element(table_metadata_element_offset);
     if (delete_result == -1) {
         logger(LL_ERROR, __func__, "Cannot drop table with name %s because of deletion error", table_name);
         return -1;

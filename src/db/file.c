@@ -22,14 +22,14 @@ int open_file(const char *filename) {
         return -1;
     }
 
-    return 0
+    return 0;
 }
 
 int close_file() {
     int close_result = close(fd);
 
     if (close_result != 0) {
-        logger(LL_ERROR, __func__, "Could not close file with descriptor %d.", file_descriptor);
+        logger(LL_ERROR, __func__, "Could not close file with descriptor %d.", fd);
         return -1;
     }
 
@@ -68,7 +68,7 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
         return -1;
     }
 
-    sync_file(fd);
+    sync_file();
 
     return 0;
 }
@@ -113,6 +113,121 @@ uint64_t get_file_size() {
 
 #include <windows.h>
 
+HANDLE file_handle;
 
+int open_file(const char *filename) {
+    file_handle = CreateFile(filename, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+                             NULL);
+
+    if (file_handle == INVALID_HANDLE_VALUE) {
+        logger(LL_ERROR, __func__, "Could not open file.");
+        return -1;
+    }
+
+    return 0;
+}
+
+int close_file() {
+    int close_result = CloseHandle(file_handle);
+
+    if (close_result == 0) {
+        logger(LL_ERROR, __func__, "Could not close file with handle %p.", file_handle);
+        return -1;
+    }
+
+    return 0;
+}
+
+int change_file_size(uint64_t new_size) {
+    LARGE_INTEGER new_size_large_integer;
+    new_size_large_integer.QuadPart = new_size;
+
+    int result = SetFilePointerEx(file_handle, new_size_large_integer, NULL, FILE_BEGIN);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not change file file size with handle %p to %ld.", file_handle,
+               new_size);
+        return -1;
+    }
+
+    result = SetEndOfFile(file_handle);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not change file file size with handle %p to %ld.", file_handle,
+               new_size);
+        return -1;
+    }
+
+    return 0;
+}
+
+int sync_file() {
+    int result = FlushFileBuffers(file_handle);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not sync file with handle %p.", file_handle);
+        return -1;
+    }
+
+    return 0;
+}
+
+int munmap_file(void *file_data_pointer, uint64_t file_size) {
+    int result = UnmapViewOfFile(file_data_pointer);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not unmap file with pointer %p and file size %ld.",
+               file_data_pointer, file_size);
+        return -1;
+    }
+
+    sync_file();
+
+    return 0;
+}
+
+int mmap_file(void **file_data_pointer, uint64_t offset, uint64_t size) {
+    HANDLE file_mapping_handle = CreateFileMapping(file_handle, NULL, PAGE_READWRITE, 0, 0, NULL);
+
+    if (file_mapping_handle == NULL) {
+        logger(LL_ERROR, __func__, "Could not create file mapping with handle %p, offset %ld and file size %ld.",
+               file_handle, offset, size);
+        return -1;
+    }
+
+    *file_data_pointer = MapViewOfFile(file_mapping_handle, FILE_MAP_ALL_ACCESS, 0, (DWORD) offset, size);
+
+    if (*file_data_pointer == NULL) {
+        logger(LL_ERROR, __func__, "Could not map file with handle %p, offset %ld and file size %ld.",
+               file_handle, offset, size);
+        return -1;
+    }
+
+    return 0;
+}
+
+int delete_file(const char *filename) {
+    int result = DeleteFile(filename);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not delete file with name %s.", filename);
+        return -1;
+    }
+
+    return 0;
+}
+
+uint64_t get_file_size() {
+    LARGE_INTEGER file_size_large_integer;
+
+    int result = GetFileSizeEx(file_handle, &file_size_large_integer);
+
+    if (result == 0) {
+        logger(LL_ERROR, __func__, "Could not get file size with handle %p.", file_handle);
+        return -1;
+    }
+
+    return (uint64_t) file_size_large_integer.QuadPart;
+}
 
 #endif

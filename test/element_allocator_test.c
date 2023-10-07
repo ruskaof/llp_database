@@ -82,13 +82,13 @@ void assert_element_on_offset(void *file_data_pointer,
 }
 
 void allocator_test_single_type() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, 100, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(100, ET_TABLE_DATA, &first_allocated_element_offset);
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == first_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -98,13 +98,13 @@ void allocator_test_single_type() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA, false, 0,
                              false, 0, 0);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, 200, ET_TABLE_DATA, &second_allocated_element_offset);
+    allocate_element(200, ET_TABLE_DATA, &second_allocated_element_offset);
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == second_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -121,13 +121,13 @@ void allocator_test_single_type() {
                              ET_TABLE_DATA,
                              false, 0,
                              true, first_allocated_element_offset, first_allocated_element_offset);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, 300, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(300, ET_TABLE_DATA, &third_allocated_element_offset);
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -150,12 +150,12 @@ void allocator_test_single_type() {
                              ET_TABLE_DATA,
                              false, 0,
                              true, second_allocated_element_offset, second_allocated_element_offset);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
-    delete_element(fd, second_allocated_element_offset);
+    delete_element(second_allocated_element_offset);
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -179,20 +179,20 @@ void allocator_test_single_type() {
                              false, 0,
                              true, first_allocated_element_offset, second_allocated_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void allocator_test_multiple_types() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, 100, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(100, ET_TABLE_DATA, &first_allocated_element_offset);
     // table_data
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == first_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -203,14 +203,14 @@ void allocator_test_multiple_types() {
                              ET_TABLE_DATA,
                              false, 0,
                              false, 0, 0);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, 200, ET_TABLE_METADATA, &second_allocated_element_offset);
+    allocate_element(200, ET_TABLE_METADATA, &second_allocated_element_offset);
     // table_data -> table_metadata
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == second_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -229,14 +229,14 @@ void allocator_test_multiple_types() {
                              ET_TABLE_METADATA,
                              false, 0,
                              false, 0, first_allocated_element_offset);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, 300, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(300, ET_TABLE_DATA, &third_allocated_element_offset);
     // table_data -> table_metadata -> table_data
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -261,13 +261,13 @@ void allocator_test_multiple_types() {
                              ET_TABLE_DATA,
                              false, 0,
                              true, first_allocated_element_offset, second_allocated_element_offset);
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 
-    delete_element(fd, first_allocated_element_offset);
+    delete_element(first_allocated_element_offset);
     // deleted -> table_metadata -> table_data
 
-    file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -293,28 +293,28 @@ void allocator_test_multiple_types() {
                              false, 0,
                              false, first_allocated_element_offset, second_allocated_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void allocator_test_with_multiple_insertions() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, 100, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(100, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, 200, ET_TABLE_METADATA, &second_allocated_element_offset);
+    allocate_element(200, ET_TABLE_METADATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, 300, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(300, ET_TABLE_DATA, &third_allocated_element_offset);
     uint64_t fourth_allocated_element_offset;
-    allocate_element(fd, 400, ET_TABLE_DATA, &fourth_allocated_element_offset);
+    allocate_element(400, ET_TABLE_DATA, &fourth_allocated_element_offset);
     uint64_t fifth_allocated_element_offset;
-    allocate_element(fd, 500, ET_TABLE_METADATA, &fifth_allocated_element_offset);
+    allocate_element(500, ET_TABLE_METADATA, &fifth_allocated_element_offset);
     // table_data -> table_metadata -> table_data -> table_data -> table_metadata
 
     void *file_data_pointer;
-    uint64_t file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    uint64_t file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == fifth_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -352,33 +352,33 @@ void allocator_test_with_multiple_insertions() {
                              false, 0,
                              true, second_allocated_element_offset, fourth_allocated_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void allocator_test_with_multiple_insertions_and_deletions() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, 100, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(100, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, 200, ET_TABLE_METADATA, &second_allocated_element_offset);
+    allocate_element(200, ET_TABLE_METADATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, 300, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(300, ET_TABLE_DATA, &third_allocated_element_offset);
     uint64_t fourth_allocated_element_offset;
-    allocate_element(fd, 400, ET_TABLE_DATA, &fourth_allocated_element_offset);
+    allocate_element(400, ET_TABLE_DATA, &fourth_allocated_element_offset);
     uint64_t fifth_allocated_element_offset;
-    allocate_element(fd, 500, ET_TABLE_METADATA, &fifth_allocated_element_offset);
+    allocate_element(500, ET_TABLE_METADATA, &fifth_allocated_element_offset);
     // table_data -> table_metadata -> table_data -> table_data -> table_metadata
 
-    delete_element(fd, first_allocated_element_offset);
-    delete_element(fd, third_allocated_element_offset);
-    delete_element(fd, fifth_allocated_element_offset);
+    delete_element(first_allocated_element_offset);
+    delete_element(third_allocated_element_offset);
+    delete_element(fifth_allocated_element_offset);
     // deleted -> table_metadata -> deleted -> table_data -> deleted
 
     void *file_data_pointer;
-    uint64_t file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    uint64_t file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == fifth_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -418,26 +418,26 @@ void allocator_test_with_multiple_insertions_and_deletions() {
                              false, 0,
                              true, third_allocated_element_offset, fourth_allocated_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void allocator_test_with_insertion_in_deleted_space() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
-    delete_element(fd, second_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
+    delete_element(second_allocated_element_offset);
     uint64_t fourth_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 1, ET_TABLE_METADATA, &fourth_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 1, ET_TABLE_METADATA, &fourth_allocated_element_offset);
 
     void *file_data_pointer;
-    uint64_t file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    uint64_t file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -475,27 +475,27 @@ void allocator_test_with_insertion_in_deleted_space() {
                              false, 0,
                              true, first_allocated_element_offset, expected_new_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void allocator_test_on_merging_deleted1() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
 
-    delete_element(fd, second_allocated_element_offset);
+    delete_element(second_allocated_element_offset);
 
-    delete_element(fd, first_allocated_element_offset);
+    delete_element(first_allocated_element_offset);
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);
@@ -518,29 +518,29 @@ void allocator_test_on_merging_deleted1() {
                              false, 0,
                              false, 0, first_allocated_element_offset);
 
-    munmap_file(file_data_pointer, file_size, fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, file_size);
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 
 void allocator_test_on_merging_deleted2() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
     uint64_t first_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &first_allocated_element_offset);
     uint64_t second_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 3, ET_TABLE_DATA, &second_allocated_element_offset);
     uint64_t third_allocated_element_offset;
-    allocate_element(fd, MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
+    allocate_element(MIN_ELEMENT_SIZE * 2, ET_TABLE_DATA, &third_allocated_element_offset);
 
-    delete_element(fd, first_allocated_element_offset);
+    delete_element(first_allocated_element_offset);
 
-    delete_element(fd, second_allocated_element_offset);
+    delete_element(second_allocated_element_offset);
 
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    mmap_file(&file_data_pointer, 0, file_size);
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(file_header->last_element_offset == third_allocated_element_offset);
     assert(file_header->has_table_data_elements);

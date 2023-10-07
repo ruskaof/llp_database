@@ -8,17 +8,17 @@
 #include "../utils/logging.h"
 
 int
-init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType element_type, uint64_t *element_offset) {
+init_empty_file_with_element(uint64_t element_size, enum ElementType element_type, uint64_t *element_offset) {
     logger(LL_DEBUG, __func__, "Initializing empty file.");
 
-    int change_file_size_result = change_file_size(fd, ALLOC_SIZE);
+    int change_file_size_result = change_file_size(ALLOC_SIZE);
     if (change_file_size_result == -1) {
         return -1;
     }
 
     void *file_data_pointer;
 
-    int mmap_result = mmap_file(fd, &file_data_pointer, 0, ALLOC_SIZE);
+    int mmap_result = mmap_file(&file_data_pointer, 0, ALLOC_SIZE);
     if (mmap_result == -1) {
         return -1;
     }
@@ -51,7 +51,7 @@ init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType ele
 
     *element_offset = FIRST_ELEMENT_OFFSET;
 
-    int munmap_result = munmap_file(file_data_pointer, ALLOC_SIZE, fd);
+    int munmap_result = munmap_file(file_data_pointer, ALLOC_SIZE);
     if (munmap_result == -1) {
         return -1;
     }
@@ -280,21 +280,21 @@ void prepare_deleted_element_for_allocation(void *file_data_pointer,
     deleted_element_header->element_size = requested_element_size;
 }
 
-int add_file_space_for_new_element(int fd, int mmap_result, uint64_t *file_size, void **file_data_pointer) {
+int add_file_space_for_new_element(int mmap_result, uint64_t *file_size, void **file_data_pointer) {
     logger(LL_DEBUG, __func__, "File size is not enough to allocate new element.");
-    int change_file_size_result = change_file_size(fd, (*file_size) + ALLOC_SIZE);
+    int change_file_size_result = change_file_size((*file_size) + ALLOC_SIZE);
     if (change_file_size_result == -1) {
         return -1;
     }
 
     (*file_size) += ALLOC_SIZE;
 
-    int munmap_result = munmap_file((*file_data_pointer), (*file_size), fd);
+    int munmap_result = munmap_file((*file_data_pointer), (*file_size));
     if (munmap_result == -1) {
         return -1;
     }
 
-    mmap_result = mmap_file(fd, file_data_pointer, 0, (*file_size));
+    mmap_result = mmap_file(file_data_pointer, 0, (*file_size));
     if (mmap_result == -1) {
         return -1;
     }
@@ -302,24 +302,24 @@ int add_file_space_for_new_element(int fd, int mmap_result, uint64_t *file_size,
     return 0;
 }
 
-int allocate_element(int fd, uint64_t requested_element_size, enum ElementType element_type, uint64_t *element_offset) {
+int allocate_element(uint64_t requested_element_size, enum ElementType element_type, uint64_t *element_offset) {
     logger(LL_DEBUG, __func__, "Allocating element of type %d with size %ld.", element_type, requested_element_size);
 
     requested_element_size += sizeof(struct ElementHeader);
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
 
     if (requested_element_size < MIN_ELEMENT_SIZE) {
         requested_element_size = MIN_ELEMENT_SIZE;
     }
 
     if (file_size == 0) {
-        return init_empty_file_with_element(fd, requested_element_size, element_type, element_offset);
+        return init_empty_file_with_element(requested_element_size, element_type, element_offset);
     }
 
     void *file_data_pointer;
 
-    int mmap_result = mmap_file(fd, &file_data_pointer, 0, file_size);
+    int mmap_result = mmap_file(&file_data_pointer, 0, file_size);
     if (mmap_result == -1) {
         return -1;
     }
@@ -345,7 +345,7 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
 
         init_new_element_offsets(element_type, *element_offset, file_data_pointer);
 
-        int munmap_result = munmap_file(file_data_pointer, file_size, fd);
+        int munmap_result = munmap_file(file_data_pointer, file_size);
         if (munmap_result == -1) {
             return -1;
         }
@@ -358,7 +358,7 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
                                                                           file_header->last_element_offset);
 
     if (file_size - (file_header->last_element_offset + last_element_header->element_size) < requested_element_size) {
-        int add_space_result = add_file_space_for_new_element(fd, mmap_result, &file_size, &file_data_pointer);
+        int add_space_result = add_file_space_for_new_element(mmap_result, &file_size, &file_data_pointer);
         if (add_space_result == -1) {
             return -1;
         }
@@ -376,7 +376,7 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
 
     init_new_element_offsets(element_type, *element_offset, file_data_pointer);
 
-    int munmap_result = munmap_file(file_data_pointer, file_size, fd);
+    int munmap_result = munmap_file(file_data_pointer, file_size);
     if (munmap_result == -1) {
         return -1;
     }
@@ -384,17 +384,17 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
     return 0;
 }
 
-int delete_element(int fd, uint64_t element_offset) {
+int delete_element(uint64_t element_offset) {
     logger(LL_DEBUG, __func__, "Deleting element at offset %ld.", element_offset);
 
-    uint64_t file_size = get_file_size(fd);
+    uint64_t file_size = get_file_size();
     if (file_size == 0) {
         return -1;
     }
 
     void *file_data_pointer;
 
-    int mmap_result = mmap_file(fd, &file_data_pointer, 0, file_size);
+    int mmap_result = mmap_file(&file_data_pointer, 0, file_size);
     if (mmap_result == -1) {
         return -1;
     }

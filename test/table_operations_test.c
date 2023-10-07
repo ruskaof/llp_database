@@ -19,11 +19,11 @@ void print_separator() {
     printf("-----------------------------------------------------------------------\n");
 }
 
-void print_file(int fd) {
+void print_file() {
     print_separator();
     void *file_data_pointer;
-    uint64_t file_size = get_file_size(fd);
-    mmap_file(fd, &file_data_pointer, 0, file_size);
+    uint64_t file_size = get_file_size();
+    mmap_file(&file_data_pointer, 0, file_size);
 
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     printf("File header:\n");
@@ -56,11 +56,11 @@ void print_file(int fd) {
     }
 
     print_separator();
-    munmap_file(file_data_pointer, file_size, fd);
+    munmap_file(file_data_pointer, file_size);
 }
 
 void table_operations_simple_insertions() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
 
     uint64_t first_table_columns_count = 2;
     struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
@@ -68,7 +68,7 @@ void table_operations_simple_insertions() {
     strcpy(columns[0].name, "test_column1");
     columns[1].type = TD_BOOL;
     strcpy(columns[1].name, "test_column2");
-    operation_create_table(fd, "test_table1", columns, first_table_columns_count);
+    operation_create_table("test_table1", columns, first_table_columns_count);
     free(columns);
 
     uint64_t second_table_columns_count = 3;
@@ -79,14 +79,14 @@ void table_operations_simple_insertions() {
     strcpy(columns[1].name, "test_column2");
     columns[2].type = TD_STRING;
     strcpy(columns[2].name, "test_column3");
-    operation_create_table(fd, "test_table2", columns, second_table_columns_count);
+    operation_create_table("test_table2", columns, second_table_columns_count);
     free(columns);
 
     uint64_t table_metadata_element_offset;
-    find_table_metadata_offset(fd, "test_table1", &table_metadata_element_offset);
+    find_table_metadata_offset("test_table1", &table_metadata_element_offset);
 
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, get_file_size(fd));
+    mmap_file(&file_data_pointer, 0, get_file_size());
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
                                                                                            table_metadata_element_offset +
                                                                                            ELEMENT_SUBHEADER_OFFSET);
@@ -97,7 +97,7 @@ void table_operations_simple_insertions() {
     assert(table_metadata_element->columns[1].type == TD_BOOL);
     assert(strcmp(table_metadata_element->columns[1].name, "test_column2") == 0);
 
-    find_table_metadata_offset(fd, "test_table2", &table_metadata_element_offset);
+    find_table_metadata_offset("test_table2", &table_metadata_element_offset);
     table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
                                                               table_metadata_element_offset + ELEMENT_SUBHEADER_OFFSET);
     assert(strcmp(table_metadata_element->name, "test_table2") == 0);
@@ -109,13 +109,13 @@ void table_operations_simple_insertions() {
     assert(table_metadata_element->columns[2].type == TD_STRING);
     assert(strcmp(table_metadata_element->columns[2].name, "test_column3") == 0);
 
-    munmap_file(file_data_pointer, get_file_size(fd), fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, get_file_size());
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_simple_deletions() {
-    int fd = open_file(TEST_FILE_LOCATION);
+    open_file(TEST_FILE_LOCATION);
 
     uint64_t first_table_columns_count = 2;
     struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
@@ -123,7 +123,7 @@ void table_operations_simple_deletions() {
     strcpy(columns[0].name, "test_column1");
     columns[1].type = TD_BOOL;
     strcpy(columns[1].name, "test_column2");
-    operation_create_table(fd, "test_table1", columns, first_table_columns_count);
+    operation_create_table("test_table1", columns, first_table_columns_count);
     free(columns);
 
     uint64_t second_table_columns_count = 3;
@@ -134,28 +134,28 @@ void table_operations_simple_deletions() {
     strcpy(columns[1].name, "test_column2");
     columns[2].type = TD_STRING;
     strcpy(columns[2].name, "test_column3");
-    operation_create_table(fd, "test_table2", columns, second_table_columns_count);
+    operation_create_table("test_table2", columns, second_table_columns_count);
     free(columns);
 
-    operation_drop_table(fd, "test_table1");
+    operation_drop_table("test_table1");
 
     uint64_t table_metadata_element_offset;
-    assert(find_table_metadata_offset(fd, "test_table1", &table_metadata_element_offset) == -1);
+    assert(find_table_metadata_offset("test_table1", &table_metadata_element_offset) == -1);
 
-    assert(find_table_metadata_offset(fd, "test_table2", &table_metadata_element_offset) == 0);
+    assert(find_table_metadata_offset("test_table2", &table_metadata_element_offset) == 0);
 
-    operation_drop_table(fd, "test_table2");
+    operation_drop_table("test_table2");
 
-    assert(find_table_metadata_offset(fd, "test_table2", &table_metadata_element_offset) == -1);
+    assert(find_table_metadata_offset("test_table2", &table_metadata_element_offset) == -1);
 
 
     void *file_data_pointer;
-    mmap_file(fd, &file_data_pointer, 0, get_file_size(fd));
+    mmap_file(&file_data_pointer, 0, get_file_size());
     struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
     assert(!file_header->has_table_metadata_elements);
 
-    munmap_file(file_data_pointer, get_file_size(fd), fd);
-    close_file(fd);
+    munmap_file(file_data_pointer, get_file_size());
+    close_file();
     delete_file(TEST_FILE_LOCATION);
 }
 
