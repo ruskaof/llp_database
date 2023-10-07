@@ -48,7 +48,6 @@ init_empty_file_with_element(int fd, uint64_t element_size, enum ElementType ele
     element_header->element_type = element_type;
     element_header->element_size = element_size;
     element_header->has_prev_element_of_type = false;
-    element_header->has_prev_element = false;
 
     *element_offset = FIRST_ELEMENT_OFFSET;
 
@@ -138,7 +137,6 @@ void set_next_element_previous_to(const void *file_data_pointer, uint64_t previo
     struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                           previous +
                                                                           previous_header->element_size);
-    next_element_header->has_prev_element = true;
     next_element_header->prev_element_offset = set_to_offset;
 }
 
@@ -223,6 +221,19 @@ void init_new_element_offsets(enum ElementType element_type, const uint64_t elem
     }
 }
 
+void merge_deleted_with_next_if_can(uint64_t element_offset, void *file_data_pointer) {
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
+    struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                          element_offset +
+                                                                          element_header->element_size);
+
+    if (next_element_header->element_type == ET_DELETED) {
+        logger(LL_DEBUG, __func__, "Next element is deleted. Merging.");
+        element_header->element_size += next_element_header->element_size;
+        erase_neighbors_data_about_element(file_data_pointer, element_offset + element_header->element_size);
+    }
+}
+
 void prepare_deleted_element_for_allocation(void *file_data_pointer,
                                             uint64_t deleted_element_offset,
                                             uint64_t requested_element_size) {
@@ -242,11 +253,12 @@ void prepare_deleted_element_for_allocation(void *file_data_pointer,
 
     logger(LL_DEBUG, __func__, "Splitting deleted element.");
 
+    uint64_t new_element_offset = deleted_element_offset + requested_element_size;
+
     if (file_header->last_element_offset == deleted_element_offset) {
-        file_header->last_element_offset = deleted_element_offset + requested_element_size;
+        file_header->last_element_offset = new_element_offset;
     }
 
-    uint64_t new_element_offset = deleted_element_offset + requested_element_size;
     set_next_element_previous_to(file_data_pointer, deleted_element_offset, new_element_offset);
 
     uint64_t new_element_size = original_element_size - requested_element_size;
@@ -254,7 +266,6 @@ void prepare_deleted_element_for_allocation(void *file_data_pointer,
                                                                          new_element_offset);
     new_element_header->element_size = new_element_size;
     new_element_header->element_type = ET_DELETED;
-    new_element_header->has_prev_element = true;
     new_element_header->prev_element_offset = deleted_element_offset;
 
     init_new_element_offsets(ET_DELETED, new_element_offset, file_data_pointer);
@@ -356,7 +367,6 @@ int allocate_element(int fd, uint64_t requested_element_size, enum ElementType e
 
     allocated_element_header->element_size = requested_element_size;
     allocated_element_header->element_type = element_type;
-    allocated_element_header->has_prev_element = true;
     allocated_element_header->prev_element_offset = file_header->last_element_offset;
     file_header->last_element_offset += last_element_header->element_size;
 
@@ -398,18 +408,24 @@ int delete_element(int fd, uint64_t element_offset) {
 
     element_header->element_type = ET_DELETED;
 
-    init_new_element_offsets(ET_DELETED, element_offset, file_data_pointer);
+    if (file_header->last_element_offset != element_offset) {
+        merge_deleted_with_next_if_can(element_offset, file_data_pointer);
+    }
 
-//    if (file_header->has_deleted_elements) {
-//        element_header->has_prev_element_of_type = true;
-//        element_header->prev_element_of_type_offset = file_header->last_deleted_element_offset;
-//    } else {
-//        element_header->has_prev_element_of_type = false;
-//    }
-//
-//    element_header->has_next_element_of_type = false;
-//    file_header->has_deleted_elements = true;
-//    file_header->last_deleted_element_offset = element_offset;
+    if (element_offset != FIRST_ELEMENT_OFFSET) {
+        struct ElementHeader *prev_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                              element_header->prev_element_offset);
+
+        if (prev_element_header->element_type == ET_DELETED) {
+            logger(LL_DEBUG, __func__, "Previous element is deleted. Merging.");
+            prev_element_header->element_size += element_header->element_size;
+            erase_neighbors_data_about_element(file_data_pointer, element_offset);
+        } else {
+            init_new_element_offsets(ET_DELETED, element_offset, file_data_pointer);
+        }
+    } else {
+        init_new_element_offsets(ET_DELETED, element_offset, file_data_pointer);
+    }
 
     return 0;
 }

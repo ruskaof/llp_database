@@ -37,7 +37,6 @@ struct ElementHeader {
     uint64_t prev_element_of_type_offset;
     bool has_next_element_of_type;
     uint64_t next_element_of_type_offset;
-    bool has_prev_element;
     uint64_t prev_element_offset;
 };
 

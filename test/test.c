@@ -47,7 +47,6 @@ void print_file(int fd) {
         printf("Next element of type offset: %lu\n", element_header->next_element_of_type_offset);
         printf("Has prev element of type: %d\n", element_header->has_prev_element_of_type);
         printf("Prev element of type offset: %lu\n", element_header->prev_element_of_type_offset);
-        printf("Has prev element: %d\n", element_header->has_prev_element);
         printf("Prev element offset: %lu\n", element_header->prev_element_offset);
         printf("\n");
         element_header = (struct ElementHeader *) (((char *) element_header) + element_header->element_size);
@@ -65,7 +64,6 @@ void assert_element_on_offset(void *file_data_pointer,
                               uint64_t next_element_of_type_offset,
                               bool has_prev_element_of_type,
                               uint64_t prev_element_of_type_offset,
-                              bool has_prev_element,
                               uint64_t prev_element_offset) {
     struct ElementHeader *element_header = (struct ElementHeader *) (((char *) file_data_pointer) + element_offset);
     assert(element_header->element_size == element_size);
@@ -78,8 +76,8 @@ void assert_element_on_offset(void *file_data_pointer,
     if (has_prev_element_of_type) {
         assert(element_header->prev_element_of_type_offset == prev_element_of_type_offset);
     }
-    assert(element_header->has_prev_element == has_prev_element);
-    if (has_prev_element) {
+
+    if (element_offset != FIRST_ELEMENT_OFFSET) {
         assert(element_header->prev_element_offset == prev_element_offset);
     }
 }
@@ -100,8 +98,7 @@ void allocator_test_single_type() {
                              FIRST_ELEMENT_OFFSET,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA, false, 0,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     munmap_file(file_data_pointer, file_size, fd);
 
     uint64_t second_allocated_element_offset;
@@ -118,15 +115,13 @@ void allocator_test_single_type() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, second_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             true, first_allocated_element_offset,
-                             true, first_allocated_element_offset);
+                             true, first_allocated_element_offset, first_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     uint64_t third_allocated_element_offset;
@@ -143,22 +138,19 @@ void allocator_test_single_type() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, second_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, third_allocated_element_offset,
-                             true, first_allocated_element_offset,
-                             true, first_allocated_element_offset);
+                             true, first_allocated_element_offset, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             true, second_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             true, second_allocated_element_offset, second_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     delete_element(fd, second_allocated_element_offset);
@@ -174,22 +166,19 @@ void allocator_test_single_type() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, third_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_DELETED,
                              false, 0,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             true, first_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             true, first_allocated_element_offset, second_allocated_element_offset);
 
     close_file(fd);
 
@@ -214,8 +203,7 @@ void allocator_test_multiple_types() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     munmap_file(file_data_pointer, file_size, fd);
 
     uint64_t second_allocated_element_offset;
@@ -235,15 +223,13 @@ void allocator_test_multiple_types() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              false, 0,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     uint64_t third_allocated_element_offset;
@@ -263,22 +249,19 @@ void allocator_test_multiple_types() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, third_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              false, 0,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             true, first_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             true, first_allocated_element_offset, second_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     delete_element(fd, first_allocated_element_offset);
@@ -297,22 +280,19 @@ void allocator_test_multiple_types() {
                              MIN_ELEMENT_SIZE,
                              ET_DELETED,
                              false, 0,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              false, 0,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             false, first_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             false, first_allocated_element_offset, second_allocated_element_offset);
 
     munmap_file(file_data_pointer, file_size, fd);
 
@@ -347,36 +327,31 @@ void allocator_test_with_multiple_insertions() {
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, third_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              true, fifth_allocated_element_offset,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              true, fourth_allocated_element_offset,
-                             true, first_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             true, first_allocated_element_offset, second_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              fourth_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             true, third_allocated_element_offset,
-                             true, third_allocated_element_offset);
+                             true, third_allocated_element_offset, third_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              fifth_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              false, 0,
-                             true, second_allocated_element_offset,
-                             true, fourth_allocated_element_offset);
+                             true, second_allocated_element_offset, fourth_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     delete_file("/home/ruskaof/Desktop/testdb2");
@@ -417,36 +392,31 @@ void allocator_test_with_multiple_insertions_and_deletions() {
                              MIN_ELEMENT_SIZE,
                              ET_DELETED,
                              true, third_allocated_element_offset,
-                             false, 0,
-                             false, 0);
+                             false, 0, 0);
     assert_element_on_offset(file_data_pointer,
                              second_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_METADATA,
                              false, 0,
-                             false, 0,
-                             true, first_allocated_element_offset);
+                             false, 0, first_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              third_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_DELETED,
                              true, fifth_allocated_element_offset,
-                             true, first_allocated_element_offset,
-                             true, second_allocated_element_offset);
+                             true, first_allocated_element_offset, second_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              fourth_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_TABLE_DATA,
                              false, 0,
-                             false, 0,
-                             true, third_allocated_element_offset);
+                             false, 0, third_allocated_element_offset);
     assert_element_on_offset(file_data_pointer,
                              fifth_allocated_element_offset,
                              MIN_ELEMENT_SIZE,
                              ET_DELETED,
                              false, 0,
-                             true, third_allocated_element_offset,
-                             true, fourth_allocated_element_offset);
+                             true, third_allocated_element_offset, fourth_allocated_element_offset);
     munmap_file(file_data_pointer, file_size, fd);
 
     delete_file("/home/ruskaof/Desktop/testdb2");
@@ -464,7 +434,45 @@ void allocator_test_with_insertion_in_deleted_space() {
     uint64_t fourth_allocated_element_offset;
     allocate_element(fd, MIN_ELEMENT_SIZE * 1, ET_TABLE_METADATA, &fourth_allocated_element_offset);
 
-    print_file(fd);
+    void *file_data_pointer;
+    uint64_t file_size = get_file_size(fd);
+    mmap_file(fd, &file_data_pointer, 0, file_size);
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
+    assert(file_header->last_element_offset == third_allocated_element_offset);
+    assert(file_header->has_table_data_elements);
+    assert(file_header->last_table_data_element_offset == third_allocated_element_offset);
+    assert(file_header->has_table_metadata_elements);
+    assert(file_header->last_table_metadata_element_offset == fourth_allocated_element_offset);
+    assert(fourth_allocated_element_offset == second_allocated_element_offset);
+    assert_element_on_offset(file_data_pointer,
+                             first_allocated_element_offset,
+                             MIN_ELEMENT_SIZE * 2 + sizeof(struct ElementHeader),
+                             ET_TABLE_DATA,
+                             true, third_allocated_element_offset,
+                             false, 0, 0);
+    assert_element_on_offset(file_data_pointer,
+                             second_allocated_element_offset,
+                             MIN_ELEMENT_SIZE * 1 + sizeof(struct ElementHeader),
+                             ET_TABLE_METADATA,
+                             false, 0,
+                             false, 0, first_allocated_element_offset);
+    struct ElementHeader *element_header_of_last_inserted_element = (struct ElementHeader *) (
+        ((char *) file_data_pointer) + fourth_allocated_element_offset);
+    uint64_t expected_new_element_offset =
+        element_header_of_last_inserted_element->element_size + fourth_allocated_element_offset;
+    assert_element_on_offset(file_data_pointer,
+                             expected_new_element_offset,
+                             MIN_ELEMENT_SIZE * 3 - element_header_of_last_inserted_element->element_size +
+                             sizeof(struct ElementHeader),
+                             ET_DELETED,
+                             false, 0,
+                             false, 0, second_allocated_element_offset);
+    assert_element_on_offset(file_data_pointer,
+                             third_allocated_element_offset,
+                             MIN_ELEMENT_SIZE * 2 + sizeof(struct ElementHeader),
+                             ET_TABLE_DATA,
+                             false, 0,
+                             true, first_allocated_element_offset, expected_new_element_offset);
 
     delete_file("/home/ruskaof/Desktop/testdb2");
 }
