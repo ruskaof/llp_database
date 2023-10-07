@@ -223,14 +223,21 @@ void init_new_element_offsets(enum ElementType element_type, const uint64_t elem
 
 void merge_deleted_with_next_if_can(uint64_t element_offset, void *file_data_pointer) {
     struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer + element_offset);
+    uint64_t next_element_offset = element_offset + element_header->element_size;
     struct ElementHeader *next_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                          element_offset +
-                                                                          element_header->element_size);
+                                                                          next_element_offset);
+    struct FileHeader *file_header = (struct FileHeader *) file_data_pointer;
 
     if (next_element_header->element_type == ET_DELETED) {
         logger(LL_DEBUG, __func__, "Next element is deleted. Merging.");
+        erase_neighbors_data_about_element(file_data_pointer, next_element_offset);
         element_header->element_size += next_element_header->element_size;
-        erase_neighbors_data_about_element(file_data_pointer, element_offset + element_header->element_size);
+
+        if (file_header->last_element_offset == next_element_offset) {
+            file_header->last_element_offset = element_offset;
+        } else {
+            set_next_element_previous_to(file_data_pointer, element_offset, element_offset);
+        }
     }
 }
 
