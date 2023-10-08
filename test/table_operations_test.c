@@ -342,11 +342,11 @@ void data_operations_simple_insertions() {
 }
 
 int main() {
-//    table_operations_simple_insertions();
-//    print_separator();
-//    table_operations_simple_deletions();
-//    print_separator();
-//    table_operations_simple_insertions2();
-//    print_separator();
+    table_operations_simple_insertions();
+    print_separator();
+    table_operations_simple_deletions();
+    print_separator();
+    table_operations_simple_insertions2();
+    print_separator();
     data_operations_simple_insertions();
 }
