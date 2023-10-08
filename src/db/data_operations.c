@@ -273,10 +273,12 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
         return (struct SelectResultIterator) {.has_element = false, .has_more = false};
     }
 
-    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                     table_metadata_offset);
-    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) element_header +
-                                                                                           ELEMENT_VALUE_OFFSET);
+    struct ElementHeader *element_header = (struct ElementHeader *) (
+        (char *) file_data_pointer +
+        table_metadata_offset);
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) (
+        (char *) element_header +
+        ELEMENT_VALUE_OFFSET);
 
     if (!table_metadata_element->has_rows) {
         logger(LL_INFO, __func__, "Table %s has no rows", table_name);
@@ -404,4 +406,77 @@ struct TableField *get_by_iterator(struct SelectResultIterator *iterator) {
     }
 
     return first_table_field;
+}
+
+int operation_delete(char *table_name, struct OperationPredicateParameter *parameters) {
+    logger(LL_INFO, __func__, "Deleting rows from table %s", table_name);
+
+    uint64_t table_metadata_offset;
+    int find_table_metadata_offset_result = find_table_metadata_offset(table_name, &table_metadata_offset);
+    if (find_table_metadata_offset_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot find table metadata about table %s", table_name);
+        return -1;
+    }
+
+    void *file_data_pointer;
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    if (mmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot mmap file");
+        return -1;
+    }
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) (
+        (char *) file_data_pointer +
+        table_metadata_offset +
+        ELEMENT_VALUE_OFFSET);
+    uint64_t current_table_data_element_offset = table_metadata_element->last_row_offset;
+
+    struct TableDataElement *current_table_data_element = (struct TableDataElement *) (
+        (char *) file_data_pointer +
+        ELEMENT_VALUE_OFFSET +
+        current_table_data_element_offset);
+
+    if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, table_metadata_offset,
+                                    parameters)) {
+        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
+        table_metadata_element->has_rows = current_table_data_element->has_prev_of_table;
+        table_metadata_element->last_row_offset = current_table_data_element->prev_of_table_offset;
+        delete_element(current_table_data_element_offset);
+    }
+
+    struct TableDataElement *previous_table_data_element = current_table_data_element;
+    current_table_data_element_offset = previous_table_data_element->prev_of_table_offset;
+    current_table_data_element = (struct TableDataElement *) (
+        (char *) file_data_pointer +
+        ELEMENT_VALUE_OFFSET +
+        current_table_data_element_offset);
+
+    while (current_table_data_element->has_prev_of_table) {
+        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
+
+        if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, table_metadata_offset,
+                                        parameters)) {
+            previous_table_data_element->has_prev_of_table = current_table_data_element->has_prev_of_table;
+            previous_table_data_element->prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+            delete_element(current_table_data_element_offset);
+        } else {
+            previous_table_data_element = current_table_data_element;
+        }
+
+        current_table_data_element_offset = previous_table_data_element->prev_of_table_offset;
+        current_table_data_element = (struct TableDataElement *) (
+            (char *) file_data_pointer +
+            ELEMENT_VALUE_OFFSET +
+            current_table_data_element_offset);
+    }
+
+    if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, table_metadata_offset,
+                                    parameters)) {
+        previous_table_data_element->has_prev_of_table = false;
+        delete_element(current_table_data_element_offset);
+    } else {
+        previous_table_data_element->has_prev_of_table = true;
+        previous_table_data_element->prev_of_table_offset = current_table_data_element_offset;
+    }
+
+    return 0;
 }

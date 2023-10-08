@@ -39,13 +39,7 @@ int operation_insert(char *table_name, struct TableField *first_table_field);
 
 int operation_truncate(char *table_name);
 
-/**
- *
- * @param table_name The name of the table to delete from.
- * @param parameters Can be NULL if no parameters are needed.
- * @return 0 if the operation was successful, -1 otherwise.
- */
-//int operation_delete(char *table_name, struct OperationPredicateParameters *parameters);
+int operation_delete(char *table_name, struct OperationPredicateParameter *parameters);
 
 /**
  *

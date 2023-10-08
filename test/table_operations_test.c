@@ -344,9 +344,7 @@ void data_operations_simple_insertions() {
     delete_file(TEST_FILE_LOCATION);
 }
 
-void data_operations_simple_insertions2() {
-    open_file(TEST_FILE_LOCATION);
-
+void init_table_with_test_data() {
     uint64_t first_table_columns_count = 2;
     struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
     columns[0].type = TD_INT64;
@@ -411,7 +409,7 @@ void data_operations_simple_insertions2() {
     free(table1_row2_field2);
 
     // insert 2 rows to the second table
-    // insert 3 kilobytes of string
+// insert 3 kilobytes of string
     char *string_value = malloc(3 * 1024);
     memset(string_value, 'a', 3 * 1024);
     struct TableField *table2_row1_field3 = malloc(sizeof(struct TableField));
@@ -470,6 +468,12 @@ void data_operations_simple_insertions2() {
     free(table2_row2_field2);
     free(table2_row2_field3->value);
     free(table2_row2_field3);
+}
+
+void data_operations_simple_insertions2() {
+    open_file(TEST_FILE_LOCATION);
+
+    init_table_with_test_data();
 
     // run assertions for second table
     struct SelectResultIterator select_result_iterator = operation_select("test_table2", NULL);
@@ -548,6 +552,49 @@ void data_operations_simple_insertions2() {
     delete_file(TEST_FILE_LOCATION);
 }
 
+void data_operations_with_deletions() {
+    open_file(TEST_FILE_LOCATION);
+
+    init_table_with_test_data();
+
+    // delete first row from the second table where int value is 123
+    struct OperationPredicateParameter *predicate_parameter = malloc(sizeof(struct OperationPredicateParameter));
+    strcpy(predicate_parameter->column_name, "test_column1");
+    predicate_parameter->next = NULL;
+    predicate_parameter->predicate_operator = PO_EQUAL;
+    predicate_parameter->value = malloc(sizeof(int64_t));
+    predicate_parameter->value_size = sizeof(int64_t);
+    *((int64_t *) predicate_parameter->value) = 123;
+
+    operation_delete("test_table2", predicate_parameter);
+
+    free(predicate_parameter->value);
+    free(predicate_parameter);
+
+    // run select on second table and check that there is no row with int value 123
+
+    struct SelectResultIterator select_result_iterator2 = operation_select("test_table2", NULL);
+    assert(select_result_iterator2.has_element);
+    assert(!select_result_iterator2.has_more);
+
+    struct TableField *table2_row2 = get_by_iterator(&select_result_iterator2);
+    assert(table2_row2->size == sizeof(int64_t));
+    assert(table2_row2->next->size == sizeof(bool));
+    assert(table2_row2->next->next->size == 2 * 1024);
+    assert(table2_row2->next->next->next == NULL);
+    int64_t *table2_row2_field1_value2 = (int64_t *) table2_row2->value;
+    assert(*table2_row2_field1_value2 == 456);
+    bool *table2_row2_field2_value2 = (bool *) table2_row2->next->value;
+    assert(*table2_row2_field2_value2 == false);
+    char *expected_string_value = malloc(2 * 1024);
+    memset(expected_string_value, 'b', 2 * 1024);
+    assert(memcmp(table2_row2->next->next->value, expected_string_value, 2 * 1024) == 0);
+    free(expected_string_value);
+
+    free(table2_row2->value);
+    free(table2_row2);
+}
+
 int main() {
     table_operations_simple_insertions();
     print_separator();
@@ -558,6 +605,8 @@ int main() {
     data_operations_simple_insertions();
     print_separator();
     data_operations_simple_insertions2();
+    print_separator();
+    data_operations_with_deletions();
 
     printf("\033[0;32m");
     printf("All tests for %s passed!\n", __FILE__);
