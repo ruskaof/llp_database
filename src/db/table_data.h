@@ -17,4 +17,11 @@ struct TableDataFieldElement {
     uint64_t field_size;
 };
 
+struct TableDataElement {
+    bool has_prev_of_table;
+    uint64_t prev_of_table_offset;
+};
+
+#define TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET sizeof(struct TableDataElement)
+
 #endif //LLP_DATABASE_TABLE_DATA_H

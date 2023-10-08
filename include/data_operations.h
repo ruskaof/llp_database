@@ -9,6 +9,7 @@
 
 struct SelectResultIterator {
     bool has_element;
+    bool has_more;
     uint64_t current_element_offset;
 };
 

@@ -11,25 +11,6 @@
 #include "file.h"
 #include "table_data.h"
 
-TableColumnSchemaName f() {
-    return "a";
-}
-
-bool table_row_valid_for_predicate(void *file_data_pointer,
-                                   struct OperationPredicateParameter *parameters,
-                                   uint64_t table_data_element_offset,
-                                   uint64_t table_metadata_element_offset) {
-    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                     table_data_element_offset);
-    struct TableDataFieldElement *table_data_field_element = (struct TableDataFieldElement *) ((char *) element_header +
-                                                                                               ELEMENT_VALUE_OFFSET);
-    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
-                                                                                           table_metadata_element_offset);
-
-    struct OperationPredicateParameter *current_parameter = parameters;
-
-}
-
 bool validate_row_schema(char *table_name,
                          struct TableField *first_table_field,
                          struct TableMetadataElement *table_metadata_element) {
@@ -54,23 +35,26 @@ bool validate_row_schema(char *table_name,
     return true;
 }
 
-uint64_t calculate_table_data_field_element_size(struct TableField *first_table_field) {
-    uint64_t table_row_element_size = 0;
+uint64_t calculate_table_data_field_size(struct TableField *first_table_field) {
+    uint64_t table_data_field_size = 0;
 
     struct TableField *current_table_field = first_table_field;
     while (current_table_field != NULL) {
-        table_row_element_size += sizeof(struct TableDataFieldElement) + current_table_field->size;
+        table_data_field_size += sizeof(struct TableDataFieldElement) + current_table_field->size;
         current_table_field = current_table_field->next;
     }
 
-    return table_row_element_size;
+    table_data_field_size += sizeof(struct TableDataFieldElement);
+
+    return table_data_field_size;
 }
 
-void fill_table_data_element(void *file_data_pointer,
-                             uint64_t table_data_field_element_offset,
-                             struct TableField *first_table_field) {
+void fill_table_data_field_element(void *file_data_pointer,
+                                   uint64_t table_data_field_element_offset,
+                                   struct TableField *first_table_field) {
     struct TableField *current_table_field = first_table_field;
-    uint64_t current_table_data_field_value_offset = table_data_field_element_offset + ELEMENT_VALUE_OFFSET;
+    uint64_t current_table_data_field_value_offset =
+        table_data_field_element_offset + ELEMENT_VALUE_OFFSET + TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET;
     struct TableDataFieldElement *current_table_data_field_element =
         (struct TableDataFieldElement *) ((char *) file_data_pointer + current_table_data_field_value_offset);
 
@@ -124,61 +108,102 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
         return -1;
     }
 
-    uint64_t table_data_field_element_size = calculate_table_data_field_element_size(first_table_field);
-    uint64_t table_data_field_element_offset;
-    int allocate_result = allocate_element(table_data_field_element_size, ET_TABLE_DATA,
-                                           &table_data_field_element_offset);
+    uint64_t table_data_field_size = calculate_table_data_field_size(first_table_field);
+    uint64_t table_data_field_offset;
+    int allocate_result = allocate_element(table_data_field_size, ET_TABLE_DATA,
+                                           &table_data_field_offset);
 
     if (allocate_result == -1) {
         logger(LL_ERROR, __func__, "Cannot insert row into table %s because of allocation error", table_name);
         return -1;
     }
 
-    fill_table_data_element(file_data_pointer, table_data_field_element_offset, first_table_field);
+    fill_table_data_field_element(file_data_pointer, table_data_field_offset, first_table_field);
 
+    struct TableDataElement *table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
+                                                                               ELEMENT_VALUE_OFFSET +
+                                                                               table_data_field_offset);
     if (table_metadata_element->has_rows) {
-        table_metadata_element->last_row_offset = table_data_field_element_offset;
+        table_data_element->has_prev_of_table = true;
+        table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
+
+        table_metadata_element->last_row_offset = table_data_field_offset;
     } else {
-        table_metadata_element->last_row_offset = table_data_field_element_offset;
+        table_data_element->has_prev_of_table = false;
+
+        table_metadata_element->last_row_offset = table_data_field_offset;
         table_metadata_element->has_rows = true;
     }
 
     return 0;
 }
 
+bool predicate_result_on_element(void *file_data_pointer,
+                                 uint64_t table_data_element_offset,
+                                 struct OperationPredicateParameter *parameters) {
+    return true;
+}
+
 struct SelectResultIterator
-operation_select(char *table_name, uint64_t parameters_count, struct OperationPredicateParameter *parameters) {
+operation_select(char *table_name, struct OperationPredicateParameter *parameters) {
     logger(LL_INFO, __func__, "Selecting rows from table %s", table_name);
+
+    struct SelectResultIterator select_result_iterator;
+    select_result_iterator.has_element = false;
 
     uint64_t table_metadata_offset;
     int find_table_metadata_offset_result = find_table_metadata_offset(table_name, &table_metadata_offset);
     if (find_table_metadata_offset_result == -1) {
         logger(LL_ERROR, __func__, "Cannot find table metadata about table %s", table_name);
-        struct SelectResultIterator return_value = {false, 0};
-        return return_value;
+        return select_result_iterator;
     }
 
     void *file_data_pointer;
     int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
     if (mmap_result == -1) {
         logger(LL_ERROR, __func__, "Cannot mmap file");
-        struct SelectResultIterator return_value = {false, 0};
-        return return_value;
+        return select_result_iterator;
     }
 
     struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                      table_metadata_offset);
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) element_header +
                                                                                            ELEMENT_VALUE_OFFSET);
-
     if (!table_metadata_element->has_rows) {
         logger(LL_INFO, __func__, "Table %s has no rows", table_name);
-        struct SelectResultIterator return_value = {false, 0};
-        return return_value;
+        return select_result_iterator;
     }
 
-    struct SelectResultIterator *select_result_iterator = malloc(sizeof(struct SelectResultIterator));
-    select_result_iterator->current_element_offset = table_metadata_element->last_row_offset;
+    uint64_t current_table_data_element_offset = table_metadata_element->last_row_offset;
+    struct TableDataElement *current_table_data_element = (struct TableDataElement *) (
+        (char *) file_data_pointer +
+        ELEMENT_VALUE_OFFSET +
+        current_table_data_element_offset);
+    struct TableDataFieldElement *current_table_data_field_element = (struct TableDataFieldElement *) (
+        (char *) file_data_pointer +
+        current_table_data_element_offset +
+        ELEMENT_VALUE_OFFSET +
+        TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET);
+
+    while (!predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
+        if (!current_table_data_element->has_prev_of_table) {
+            logger(LL_INFO, __func__, "Cannot find row in table %s", table_name);
+            return select_result_iterator;
+        }
+
+        current_table_data_element_offset = current_table_data_element->prev_of_table_offset;
+        current_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
+                                                                  ELEMENT_VALUE_OFFSET +
+                                                                  current_table_data_element_offset);
+        current_table_data_field_element = (struct TableDataFieldElement *) ((char *) file_data_pointer +
+                                                                             current_table_data_element_offset +
+                                                                             ELEMENT_VALUE_OFFSET +
+                                                                             TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET);
+    }
+
+    select_result_iterator.current_element_offset = current_table_data_element_offset;
+    select_result_iterator.has_more = current_table_data_element->has_prev_of_table;
+    select_result_iterator.has_element = true;
 
     return select_result_iterator;
 }
