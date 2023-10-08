@@ -41,6 +41,6 @@ struct ElementHeader {
 };
 
 #define MIN_ELEMENT_SIZE 1024
-#define ELEMENT_SUBHEADER_OFFSET sizeof(struct ElementHeader)
+#define ELEMENT_VALUE_OFFSET sizeof(struct ElementHeader)
 
 #endif //LLP_DATABASE_ELEMENT_H

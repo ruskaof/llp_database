@@ -99,7 +99,7 @@ void table_operations_simple_insertions() {
     mmap_file(&file_data_pointer, 0, get_file_size());
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
                                                                                            table_metadata_element_offset +
-                                                                                           ELEMENT_SUBHEADER_OFFSET);
+                                                                                           ELEMENT_VALUE_OFFSET);
     assert(strcmp(table_metadata_element->name, "test_table1") == 0);
     assert(table_metadata_element->columns_count == first_table_columns_count);
     assert(table_metadata_element->columns[0].type == TD_INT64);
@@ -109,7 +109,7 @@ void table_operations_simple_insertions() {
 
     find_table_metadata_offset("test_table2", &table_metadata_element_offset);
     table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
-                                                              table_metadata_element_offset + ELEMENT_SUBHEADER_OFFSET);
+                                                              table_metadata_element_offset + ELEMENT_VALUE_OFFSET);
     assert(strcmp(table_metadata_element->name, "test_table2") == 0);
     assert(table_metadata_element->columns_count == second_table_columns_count);
     assert(table_metadata_element->columns[0].type == TD_INT64);

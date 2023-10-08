@@ -33,7 +33,7 @@ int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset
     struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                      current_table_metadata_element_offset);
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) element_header +
-                                                                                           ELEMENT_SUBHEADER_OFFSET);
+                                                                                           ELEMENT_VALUE_OFFSET);
     if (strcmp(table_metadata_element->name, table_name) == 0) {
         logger(LL_INFO, __func__, "Found table metadata element with name %s at offset %ld", table_name,
                current_table_metadata_element_offset);
@@ -44,7 +44,7 @@ int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset
     while (element_header->has_prev_element_of_type) {
         current_table_metadata_element_offset = element_header->prev_element_of_type_offset;
         element_header = (struct ElementHeader *) ((char *) file_data_pointer + current_table_metadata_element_offset);
-        table_metadata_element = (struct TableMetadataElement *) ((char *) element_header + ELEMENT_SUBHEADER_OFFSET);
+        table_metadata_element = (struct TableMetadataElement *) ((char *) element_header + ELEMENT_VALUE_OFFSET);
 
         if (strcmp(table_metadata_element->name, table_name) == 0) {
             logger(LL_INFO, __func__, "Found table metadata element with name %s at offset %ld", table_name,

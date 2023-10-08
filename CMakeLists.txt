@@ -3,7 +3,7 @@ project(llp_database C)
 
 set(CMAKE_C_STANDARD 17)
 
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -fstack-protector -D_FORTIFY_SOURCE=2 -fsanitize=address")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -fstack-protector -D_FORTIFY_SOURCE=2 -fsanitize=address")
 
 add_library(llp_database
         src/utils/logging.c
@@ -21,6 +21,7 @@ add_library(llp_database
         src/db/table_metadata.h
         src/db/table_operations.c
         src/db/table_metadata.c
+        src/db/table_data.h
 )
 
 add_executable(element_allocator_test test/element_allocator_test.c
@@ -39,6 +40,7 @@ add_executable(element_allocator_test test/element_allocator_test.c
         src/db/table_metadata.h
         src/db/table_operations.c
         src/db/table_metadata.c
+        src/db/table_data.h
 )
 add_executable(table_operations_test test/table_operations_test.c
         src/utils/logging.c
@@ -56,4 +58,5 @@ add_executable(table_operations_test test/table_operations_test.c
         src/db/table_metadata.h
         src/db/table_operations.c
         src/db/table_metadata.c
+        src/db/table_data.h
 )

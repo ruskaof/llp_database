@@ -6,6 +6,8 @@
 #define LLP_DATABASE_TABLE_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #define MAX_TABLE_NAME_LENGTH 255
 #define MAX_TABLE_COLUMN_NAME_LENGTH 255
@@ -21,13 +23,9 @@ enum TableDatatype {
 };
 
 struct TableField {
-    enum TableDatatype type;
-    char *name;
-};
-
-struct TableRow {
-    size_t fields_count;
-    struct TableField fields[];
+    uint64_t size;
+    struct TableField *next;
+    void *value;
 };
 
 struct TableColumn {

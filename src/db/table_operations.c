@@ -54,7 +54,7 @@ int operation_create_table(char *table_name, struct TableColumn *columns, uint64
         logger(LL_ERROR, __func__, "Cannot mmap file");
         return -1;
     }
-    memcpy((char *) file_data_pointer + table_metadata_element_offset + ELEMENT_SUBHEADER_OFFSET,
+    memcpy((char *) file_data_pointer + table_metadata_element_offset + ELEMENT_VALUE_OFFSET,
            table_metadata_element, table_metadata_element_size);
 
     free(table_metadata_element);
