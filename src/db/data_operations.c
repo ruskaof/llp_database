@@ -35,7 +35,7 @@ bool validate_row_schema(char *table_name,
     return true;
 }
 
-uint64_t calculate_table_data_field_size(struct TableField *first_table_field) {
+uint64_t calculate_table_data_size(struct TableField *first_table_field) {
     uint64_t table_data_field_size = 0;
 
     struct TableField *current_table_field = first_table_field;
@@ -49,38 +49,58 @@ uint64_t calculate_table_data_field_size(struct TableField *first_table_field) {
     return table_data_field_size;
 }
 
-void fill_table_data_field_element(void *file_data_pointer,
-                                   uint64_t table_data_field_element_offset,
-                                   struct TableField *first_table_field) {
+void fill_newly_allocated_element_with_data(struct TableField *first_table_field,
+                                            uint64_t table_data_element_offset,
+                                            uint64_t table_metadata_element_offset) {
+    void *file_data_pointer;
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    if (mmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot mmap file");
+        return;
+    }
+
+    struct TableDataElement *table_data_element = (struct TableDataElement *) (
+        (char *) file_data_pointer +
+        ELEMENT_VALUE_OFFSET +
+        table_data_element_offset);
+
+    uint64_t current_table_data_field_element_offset = table_data_element_offset + ELEMENT_VALUE_OFFSET +
+                                                       TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET;
+
     struct TableField *current_table_field = first_table_field;
-    uint64_t current_table_data_field_value_offset =
-        table_data_field_element_offset + ELEMENT_VALUE_OFFSET + TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET;
-    struct TableDataFieldElement *current_table_data_field_element =
-        (struct TableDataFieldElement *) ((char *) file_data_pointer + current_table_data_field_value_offset);
 
     while (current_table_field != NULL) {
-        current_table_data_field_element->field_size = current_table_field->size;
-
-        if (current_table_field->next != NULL) {
-            current_table_data_field_element->next_field_offset =
-                current_table_data_field_value_offset + current_table_field->size;
-            current_table_data_field_element->has_next = true;
-        } else {
-            current_table_data_field_element->has_next = false;
+        struct TableDataFieldElement *table_data_field_element = (struct TableDataFieldElement *) (
+            (char *) file_data_pointer +
+            current_table_data_field_element_offset);
+        table_data_field_element->has_next = current_table_field->next != NULL;
+        table_data_field_element->field_size = current_table_field->size;
+        if (table_data_field_element->has_next) {
+            table_data_field_element->next_field_offset = current_table_data_field_element_offset +
+                                                          sizeof(struct TableDataFieldElement) +
+                                                          current_table_field->size;
         }
 
-        memcpy(
-            (char *) file_data_pointer + current_table_data_field_value_offset + sizeof(struct TableDataFieldElement),
-            current_table_field->value,
-            current_table_field->size);
+        memcpy((char *) file_data_pointer + current_table_data_field_element_offset +
+               sizeof(struct TableDataFieldElement),
+               current_table_field->value,
+               current_table_field->size);
 
-        current_table_data_field_value_offset += current_table_field->size;
-        current_table_data_field_element =
-            (struct TableDataFieldElement *) ((char *) file_data_pointer + current_table_data_field_value_offset);
+        current_table_data_field_element_offset = table_data_field_element->next_field_offset;
         current_table_field = current_table_field->next;
     }
 
-    current_table_data_field_element->has_next = false;
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
+                                                                                           table_metadata_element_offset +
+                                                                                           ELEMENT_VALUE_OFFSET);
+
+    table_data_element->has_prev_of_table = table_metadata_element->has_rows;
+    table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
+
+    table_metadata_element->has_rows = true;
+    table_metadata_element->last_row_offset = table_data_element_offset;
+
+    munmap_file(file_data_pointer, get_file_size());
 }
 
 int operation_insert(char *table_name, struct TableField *first_table_field) {
@@ -93,76 +113,44 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
         return -1;
     }
 
-    void *file_data_pointer;
-    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
-    if (mmap_result == -1) {
-        logger(LL_ERROR, __func__, "Cannot mmap file");
-        return -1;
-    }
-
-    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
-                                                                     table_metadata_offset);
-    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) element_header +
-                                                                                           ELEMENT_VALUE_OFFSET);
-    if (!validate_row_schema(table_name, first_table_field, table_metadata_element)) {
-        return -1;
-    }
-
-    uint64_t table_data_field_size = calculate_table_data_field_size(first_table_field);
-    uint64_t table_data_field_offset;
-    int allocate_result = allocate_element(table_data_field_size, ET_TABLE_DATA,
-                                           &table_data_field_offset);
-
+    uint64_t table_data_element_size = calculate_table_data_size(first_table_field);
+    uint64_t table_data_element_offset;
+    int allocate_result = allocate_element(table_data_element_size, ET_TABLE_DATA,
+                                           &table_data_element_offset);
     if (allocate_result == -1) {
         logger(LL_ERROR, __func__, "Cannot insert row into table %s because of allocation error", table_name);
         return -1;
     }
 
-    fill_table_data_field_element(file_data_pointer, table_data_field_offset, first_table_field);
-
-    struct TableDataElement *table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
-                                                                               ELEMENT_VALUE_OFFSET +
-                                                                               table_data_field_offset);
-    if (table_metadata_element->has_rows) {
-        table_data_element->has_prev_of_table = true;
-        table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
-
-        table_metadata_element->last_row_offset = table_data_field_offset;
-    } else {
-        table_data_element->has_prev_of_table = false;
-
-        table_metadata_element->last_row_offset = table_data_field_offset;
-        table_metadata_element->has_rows = true;
-    }
-
+    fill_newly_allocated_element_with_data(first_table_field, table_data_element_offset, table_metadata_offset);
     return 0;
 }
 
 bool predicate_result_on_element(void *file_data_pointer,
                                  uint64_t table_data_element_offset,
                                  struct OperationPredicateParameter *parameters) {
+    if (parameters == NULL) {
+        return true;
+    }
+
     return true;
 }
 
-struct SelectResultIterator
-operation_select(char *table_name, struct OperationPredicateParameter *parameters) {
-    logger(LL_INFO, __func__, "Selecting rows from table %s", table_name);
-
-    struct SelectResultIterator select_result_iterator;
-    select_result_iterator.has_element = false;
+int operation_truncate(char *table_name) {
+    logger(LL_INFO, __func__, "Truncating table %s", table_name);
 
     uint64_t table_metadata_offset;
     int find_table_metadata_offset_result = find_table_metadata_offset(table_name, &table_metadata_offset);
     if (find_table_metadata_offset_result == -1) {
         logger(LL_ERROR, __func__, "Cannot find table metadata about table %s", table_name);
-        return select_result_iterator;
+        return -1;
     }
 
     void *file_data_pointer;
     int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
     if (mmap_result == -1) {
         logger(LL_ERROR, __func__, "Cannot mmap file");
-        return select_result_iterator;
+        return -1;
     }
 
     struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
@@ -171,7 +159,7 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
                                                                                            ELEMENT_VALUE_OFFSET);
     if (!table_metadata_element->has_rows) {
         logger(LL_INFO, __func__, "Table %s has no rows", table_name);
-        return select_result_iterator;
+        return 0;
     }
 
     uint64_t current_table_data_element_offset = table_metadata_element->last_row_offset;
@@ -179,31 +167,170 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
         (char *) file_data_pointer +
         ELEMENT_VALUE_OFFSET +
         current_table_data_element_offset);
-    struct TableDataFieldElement *current_table_data_field_element = (struct TableDataFieldElement *) (
-        (char *) file_data_pointer +
-        current_table_data_element_offset +
-        ELEMENT_VALUE_OFFSET +
-        TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET);
 
-    while (!predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
-        if (!current_table_data_element->has_prev_of_table) {
-            logger(LL_INFO, __func__, "Cannot find row in table %s", table_name);
-            return select_result_iterator;
-        }
+    while (current_table_data_element->has_prev_of_table) {
+        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
+        uint64_t prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+        delete_element(current_table_data_element_offset);
 
-        current_table_data_element_offset = current_table_data_element->prev_of_table_offset;
+        current_table_data_element_offset = prev_of_table_offset;
         current_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
                                                                   ELEMENT_VALUE_OFFSET +
                                                                   current_table_data_element_offset);
-        current_table_data_field_element = (struct TableDataFieldElement *) ((char *) file_data_pointer +
-                                                                             current_table_data_element_offset +
-                                                                             ELEMENT_VALUE_OFFSET +
-                                                                             TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET);
     }
 
-    select_result_iterator.current_element_offset = current_table_data_element_offset;
-    select_result_iterator.has_more = current_table_data_element->has_prev_of_table;
-    select_result_iterator.has_element = true;
+    delete_element(current_table_data_element_offset);
 
-    return select_result_iterator;
+    table_metadata_element->has_rows = false;
+
+    return 0;
+}
+
+struct SelectResultIterator
+operation_select(char *table_name, struct OperationPredicateParameter *parameters) {
+    logger(LL_INFO, __func__, "Selecting rows from table %s", table_name);
+
+    uint64_t table_metadata_offset;
+    int find_table_metadata_offset_result = find_table_metadata_offset(table_name, &table_metadata_offset);
+    if (find_table_metadata_offset_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot find table metadata about table %s", table_name);
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    void *file_data_pointer;
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    if (mmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot mmap file");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    struct ElementHeader *element_header = (struct ElementHeader *) ((char *) file_data_pointer +
+                                                                     table_metadata_offset);
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) element_header +
+                                                                                           ELEMENT_VALUE_OFFSET);
+
+    if (!table_metadata_element->has_rows) {
+        logger(LL_INFO, __func__, "Table %s has no rows", table_name);
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    uint64_t current_table_data_element_offset = table_metadata_element->last_row_offset;
+    struct TableDataElement *current_table_data_element = (struct TableDataElement *) (
+        (char *) file_data_pointer +
+        ELEMENT_VALUE_OFFSET +
+        current_table_data_element_offset);
+
+    while (current_table_data_element->has_prev_of_table) {
+        logger(LL_DEBUG, __func__, "Selecting row at offset %ld", current_table_data_element_offset);
+        uint64_t prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+
+        if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
+            return (struct SelectResultIterator) {.has_element = true, .has_more = true, .current_element_offset = current_table_data_element_offset};
+        }
+
+        current_table_data_element_offset = prev_of_table_offset;
+        current_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
+                                                                  ELEMENT_VALUE_OFFSET +
+                                                                  current_table_data_element_offset);
+    }
+
+    if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
+        return (struct SelectResultIterator) {.has_element = true, .has_more = false, .current_element_offset = current_table_data_element_offset};
+    }
+
+    return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+}
+
+struct SelectResultIterator get_next(struct SelectResultIterator *iterator) {
+    if (!iterator->has_element) {
+        logger(LL_ERROR, __func__, "Cannot get next element from iterator without element");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    if (!iterator->has_more) {
+        logger(LL_ERROR, __func__, "Cannot get next element from iterator without more elements");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    void *file_data_pointer;
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    if (mmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot mmap file");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    struct TableDataElement *current_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
+                                                                                       ELEMENT_VALUE_OFFSET +
+                                                                                       iterator->current_element_offset);
+
+    if (!current_table_data_element->has_prev_of_table) {
+        logger(LL_ERROR, __func__, "Cannot get next element from iterator without next element");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    struct TableDataElement *prev_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
+                                                                                    ELEMENT_VALUE_OFFSET +
+                                                                                    current_table_data_element->prev_of_table_offset);
+    return (struct SelectResultIterator) {.has_element = true, .has_more = prev_table_data_element->has_prev_of_table, .current_element_offset = current_table_data_element->prev_of_table_offset};
+}
+
+struct TableField *get_by_iterator(struct SelectResultIterator *iterator) {
+    if (!iterator->has_element) {
+        logger(LL_ERROR, __func__, "Cannot get element from iterator without element");
+        return NULL;
+    }
+
+    void *file_data_pointer;
+    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    if (mmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot mmap file");
+        return NULL;
+    }
+
+    uint64_t current_table_data_field_element_offset = iterator->current_element_offset + ELEMENT_VALUE_OFFSET +
+                                                       TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET;
+    struct TableDataFieldElement *current_table_data_field_element = (struct TableDataFieldElement *) (
+        (char *) file_data_pointer + current_table_data_field_element_offset);
+
+    struct TableField *first_table_field = NULL;
+    struct TableField *current_table_field = NULL;
+
+    while (current_table_data_field_element->has_next) {
+        struct TableField *table_field = malloc(sizeof(struct TableField));
+        table_field->size = current_table_data_field_element->field_size;
+        table_field->value = malloc(table_field->size);
+        memcpy(table_field->value,
+               (char *) file_data_pointer + current_table_data_field_element_offset +
+               sizeof(struct TableDataFieldElement),
+               table_field->size);
+
+        if (first_table_field == NULL) {
+            first_table_field = table_field;
+            current_table_field = table_field;
+        } else {
+            current_table_field->next = table_field;
+            current_table_field = table_field;
+        }
+
+        current_table_data_field_element_offset = current_table_data_field_element->next_field_offset;
+        current_table_data_field_element = (struct TableDataFieldElement *) ((char *) file_data_pointer +
+                                                                             current_table_data_field_element_offset);
+    }
+
+    struct TableField *table_field = malloc(sizeof(struct TableField));
+    table_field->size = current_table_data_field_element->field_size;
+    table_field->next = NULL;
+    table_field->value = malloc(table_field->size);
+    memcpy(table_field->value,
+           (char *) file_data_pointer + current_table_data_field_element_offset +
+           sizeof(struct TableDataFieldElement),
+           table_field->size);
+
+    if (first_table_field == NULL) {
+        first_table_field = table_field;
+    } else {
+        current_table_field->next = table_field;
+    }
+
+    return first_table_field;
 }

@@ -3,6 +3,7 @@
 //
 
 #include "../../include/table_operations.h"
+#include "../../include/data_operations.h"
 #include "../utils/logging.h"
 #include "table_metadata.h"
 #include "element_allocator.h"
@@ -64,6 +65,12 @@ int operation_create_table(char *table_name, struct TableColumn *columns, uint64
 }
 
 int operation_drop_table(char *table_name) {
+    int truncate_result = operation_truncate(table_name);
+    if (truncate_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot drop table with name %s because of truncation error", table_name);
+        return -1;
+    }
+
     uint64_t table_metadata_element_offset;
     if (find_table_metadata_offset(table_name, &table_metadata_element_offset) == -1) {
         logger(LL_ERROR, __func__, "Cannot drop table with name %s because it does not exist", table_name);

@@ -15,6 +15,8 @@
 int fd;
 
 int open_file(const char *filename) {
+    logger(LL_DEBUG, __func__, "Opening file %s.", filename);
+
     fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
     if (fd == -1) {
@@ -26,6 +28,8 @@ int open_file(const char *filename) {
 }
 
 int close_file() {
+    logger(LL_DEBUG, __func__, "Closing file with descriptor %d.", fd);
+
     int close_result = close(fd);
 
     if (close_result != 0) {
@@ -37,6 +41,8 @@ int close_file() {
 }
 
 int change_file_size(uint64_t new_size) {
+    logger(LL_DEBUG, __func__, "Changing file file size with descriptor %d to %ld.", fd, new_size);
+
     int result = ftruncate(fd, (off_t) new_size);
 
     if (result != 0) {
@@ -49,6 +55,8 @@ int change_file_size(uint64_t new_size) {
 }
 
 int sync_file() {
+    logger(LL_DEBUG, __func__, "Syncing file with descriptor %d.", fd);
+
     int result = fsync(fd);
 
     if (result != 0) {
@@ -60,6 +68,11 @@ int sync_file() {
 }
 
 int munmap_file(void *file_data_pointer, uint64_t file_size) {
+    logger(LL_DEBUG, __func__, "Unmapping file with pointer %p and file size %ld.",
+           file_data_pointer, file_size);
+
+    sync_file();
+
     int result = munmap(file_data_pointer, file_size);
 
     if (result != 0) {
@@ -68,12 +81,14 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
         return -1;
     }
 
-    sync_file();
 
     return 0;
 }
 
 int mmap_file(void **file_data_pointer, uint64_t offset, uint64_t size) {
+    logger(LL_DEBUG, __func__, "Mapping file with descriptor %d, offset %ld and file size %ld.", fd,
+           offset, size);
+
     *file_data_pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t) offset);
 
     if (*file_data_pointer == MAP_FAILED) {
@@ -86,6 +101,8 @@ int mmap_file(void **file_data_pointer, uint64_t offset, uint64_t size) {
 }
 
 int delete_file(const char *filename) {
+    logger(LL_DEBUG, __func__, "Deleting file with name %s.", filename);
+
     int result = unlink(filename);
 
     if (result != 0) {
@@ -97,6 +114,8 @@ int delete_file(const char *filename) {
 }
 
 uint64_t get_file_size() {
+    logger(LL_DEBUG, __func__, "Getting file size with descriptor %d.", fd);
+
     off_t file_size = lseek(fd, 0, SEEK_END);
 
     if (file_size == -1) {

@@ -42,6 +42,7 @@ add_executable(element_allocator_test test/element_allocator_test.c
         src/db/table_metadata.c
         src/db/table_data.h
 )
+
 add_executable(table_operations_test test/table_operations_test.c
         src/utils/logging.c
         src/utils/logging.h

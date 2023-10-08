@@ -4,6 +4,7 @@
 
 #include "../include/table.h"
 #include "../include/table_operations.h"
+#include "../include/data_operations.h"
 #include "../src/db/file.h"
 #include "../src/db/table_metadata.h"
 #include "../src/db/element.h"
@@ -169,7 +170,183 @@ void table_operations_simple_deletions() {
     delete_file(TEST_FILE_LOCATION);
 }
 
+void table_operations_simple_insertions2() {
+    open_file(TEST_FILE_LOCATION);
+
+    uint64_t first_table_columns_count = 2;
+    struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    operation_create_table("test_table1", columns, first_table_columns_count);
+    free(columns);
+
+    uint64_t second_table_columns_count = 3;
+    columns = malloc(second_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    columns[2].type = TD_STRING;
+    strcpy(columns[2].name, "test_column3");
+    operation_create_table("test_table2", columns, second_table_columns_count);
+    free(columns);
+
+    uint64_t table_metadata_element_offset;
+    find_table_metadata_offset("test_table1", &table_metadata_element_offset);
+
+    void *file_data_pointer;
+    mmap_file(&file_data_pointer, 0, get_file_size());
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
+                                                                                           table_metadata_element_offset +
+                                                                                           ELEMENT_VALUE_OFFSET);
+    assert(strcmp(table_metadata_element->name, "test_table1") == 0);
+    assert(table_metadata_element->columns_count == first_table_columns_count);
+    assert(table_metadata_element->columns[0].type == TD_INT64);
+    assert(strcmp(table_metadata_element->columns[0].name, "test_column1") == 0);
+    assert(table_metadata_element->columns[1].type == TD_BOOL);
+    assert(strcmp(table_metadata_element->columns[1].name, "test_column2") == 0);
+
+    find_table_metadata_offset("test_table2", &table_metadata_element_offset);
+    table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
+                                                              table_metadata_element_offset + ELEMENT_VALUE_OFFSET);
+    assert(strcmp(table_metadata_element->name, "test_table2") == 0);
+    assert(table_metadata_element->columns_count == second_table_columns_count);
+    assert(table_metadata_element->columns[0].type == TD_INT64);
+    assert(strcmp(table_metadata_element->columns[0].name, "test_column1") == 0);
+    assert(table_metadata_element->columns[1].type == TD_BOOL);
+    assert(strcmp(table_metadata_element->columns[1].name, "test_column2") == 0);
+    assert(table_metadata_element->columns[2].type == TD_STRING);
+    assert(strcmp(table_metadata_element->columns[2].name, "test_column3") == 0);
+
+    munmap_file(file_data_pointer, get_file_size());
+    close_file();
+    delete_file(TEST_FILE_LOCATION);
+}
+
+void data_operations_simple_insertions() {
+    open_file(TEST_FILE_LOCATION);
+
+    uint64_t first_table_columns_count = 2;
+    struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    operation_create_table("test_table1", columns, first_table_columns_count);
+    free(columns);
+
+    uint64_t second_table_columns_count = 3;
+    columns = malloc(second_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    columns[2].type = TD_STRING;
+    strcpy(columns[2].name, "test_column3");
+    operation_create_table("test_table2", columns, second_table_columns_count);
+    free(columns);
+
+    // BOOL
+    struct TableField *table1_row1_field2 = malloc(sizeof(struct TableField));
+    table1_row1_field2->size = sizeof(bool);
+    table1_row1_field2->next = NULL;
+    bool *table1_row1_field2_value = malloc(sizeof(bool));
+    *table1_row1_field2_value = true;
+    table1_row1_field2->value = table1_row1_field2_value;
+
+    // INT64
+    struct TableField *table1_row1_field1 = malloc(sizeof(struct TableField));
+    table1_row1_field1->size = sizeof(int64_t);
+    table1_row1_field1->next = table1_row1_field2;
+    int64_t *table1_row1_field1_value = malloc(sizeof(int64_t));
+    *table1_row1_field1_value = 123;
+    table1_row1_field1->value = table1_row1_field1_value;
+
+    operation_insert("test_table1", table1_row1_field1);
+    free(table1_row1_field1->value);
+    free(table1_row1_field1);
+    free(table1_row1_field2->value);
+    free(table1_row1_field2);
+
+
+    struct SelectResultIterator select_result_iterator = operation_select("test_table1", NULL);
+    assert(select_result_iterator.has_element);
+    assert(!select_result_iterator.has_more);
+
+    struct TableField *table1_row1 = get_by_iterator(&select_result_iterator);
+    assert(table1_row1->size == sizeof(int64_t));
+    assert(table1_row1->next->size == sizeof(bool));
+    assert(table1_row1->next->next == NULL);
+    int64_t *table1_row1_field1_value2 = (int64_t *) table1_row1->value;
+    assert(*table1_row1_field1_value2 == 123);
+    bool *table1_row1_field2_value2 = (bool *) table1_row1->next->value;
+    assert(*table1_row1_field2_value2 == true);
+
+    free(table1_row1);
+
+    // insert one more row to the first table
+    struct TableField *table1_row2_field2 = malloc(sizeof(struct TableField));
+    table1_row2_field2->size = sizeof(bool);
+    table1_row2_field2->next = NULL;
+    bool *table1_row2_field2_value = malloc(sizeof(bool));
+    *table1_row2_field2_value = false;
+    table1_row2_field2->value = table1_row2_field2_value;
+
+    struct TableField *table1_row2_field1 = malloc(sizeof(struct TableField));
+    table1_row2_field1->size = sizeof(int64_t);
+    table1_row2_field1->next = table1_row2_field2;
+    int64_t *table1_row2_field1_value = malloc(sizeof(int64_t));
+    *table1_row2_field1_value = 456;
+    table1_row2_field1->value = table1_row2_field1_value;
+
+    operation_insert("test_table1", table1_row2_field1);
+    free(table1_row2_field1->value);
+    free(table1_row2_field1);
+    free(table1_row2_field2->value);
+    free(table1_row2_field2);
+
+    select_result_iterator = operation_select("test_table1", NULL);
+    assert(select_result_iterator.has_element);
+    assert(select_result_iterator.has_more);
+
+    struct TableField *table1_row2 = get_by_iterator(&select_result_iterator);
+    assert(table1_row2->size == sizeof(int64_t));
+    assert(table1_row2->next->size == sizeof(bool));
+    assert(table1_row2->next->next == NULL);
+    int64_t *table1_row2_field1_value2 = (int64_t *) table1_row2->value;
+    assert(*table1_row2_field1_value2 == 456);
+    bool *table1_row2_field2_value2 = (bool *) table1_row2->next->value;
+    assert(*table1_row2_field2_value2 == false);
+
+    free(table1_row2);
+
+    select_result_iterator = get_next(&select_result_iterator);
+    assert(select_result_iterator.has_element);
+    assert(!select_result_iterator.has_more);
+
+    struct TableField *table1_row1_2 = get_by_iterator(&select_result_iterator);
+    assert(table1_row1_2->size == sizeof(int64_t));
+    assert(table1_row1_2->next->size == sizeof(bool));
+    assert(table1_row1_2->next->next == NULL);
+    int64_t *table1_row1_field1_value3 = (int64_t *) table1_row1_2->value;
+    assert(*table1_row1_field1_value3 == 123);
+    bool *table1_row1_field2_value3 = (bool *) table1_row1_2->next->value;
+    assert(*table1_row1_field2_value3 == true);
+
+    free(table1_row1_2);
+
+    close_file();
+    delete_file(TEST_FILE_LOCATION);
+}
+
 int main() {
-    table_operations_simple_insertions();
-    table_operations_simple_deletions();
+//    table_operations_simple_insertions();
+//    print_separator();
+//    table_operations_simple_deletions();
+//    print_separator();
+//    table_operations_simple_insertions2();
+//    print_separator();
+    data_operations_simple_insertions();
 }

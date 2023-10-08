@@ -31,9 +31,15 @@ struct OperationPredicateParameter {
 };
 
 struct SelectResultIterator
-operation_select(char *table_name, uint64_t parameters_count, struct OperationPredicateParameter *parameters);
+operation_select(char *table_name, struct OperationPredicateParameter *parameters);
+
+struct TableField *get_by_iterator(struct SelectResultIterator *iterator);
+
+struct SelectResultIterator get_next(struct SelectResultIterator *iterator);
 
 int operation_insert(char *table_name, struct TableField *first_table_field);
+
+int operation_truncate(char *table_name);
 
 /**
  *
