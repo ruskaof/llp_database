@@ -592,4 +592,8 @@ int main() {
     allocator_test_on_merging_deleted1();
     print_separator();
     allocator_test_on_merging_deleted2();
+
+    printf("\033[0;32m");
+    printf("All tests for %s passed!\n", __FILE__);
+    printf("\033[0m");
 }

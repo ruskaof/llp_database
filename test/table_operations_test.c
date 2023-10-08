@@ -349,4 +349,8 @@ int main() {
     table_operations_simple_insertions2();
     print_separator();
     data_operations_simple_insertions();
+
+    printf("\033[0;32m");
+    printf("All tests for %s passed!\n", __FILE__);
+    printf("\033[0m");
 }

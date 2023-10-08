@@ -40,8 +40,20 @@ void logger(enum LogLevel log_level, const char *tag, const char *message, ...) 
 
         char *now = calc_now_str();
 
+        if (log_level == LL_ERROR) {
+            printf("\033[0;31m");
+        } else if (log_level == LL_WARN) {
+            printf("\033[0;33m");
+        } else if (log_level == LL_INFO) {
+            printf("\033[0;34m");
+        }
+
         printf("%s - %s [%s]: ", now, getLogLevelName(log_level), tag);
         vprintf(message, args);
         printf("\n");
+
+        if (log_level == LL_ERROR || log_level == LL_WARN || log_level == LL_INFO) {
+            printf("\033[0m");
+        }
     }
 }
