@@ -17,9 +17,7 @@ enum PredicateOperator {
     PO_EQUAL,
     PO_NOT_EQUAL,
     PO_GREATER_THAN,
-    PO_GREATER_THAN_OR_EQUAL,
     PO_LESS_THAN,
-    PO_LESS_THAN_OR_EQUAL
 };
 
 struct OperationPredicateParameter {

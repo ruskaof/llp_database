@@ -11,30 +11,6 @@
 #include "file.h"
 #include "table_data.h"
 
-bool validate_row_schema(char *table_name,
-                         struct TableField *first_table_field,
-                         struct TableMetadataElement *table_metadata_element) {
-    struct TableField *current_table_field = first_table_field;
-    uint64_t current_table_field_index = 0;
-
-    while (current_table_field_index != table_metadata_element->columns_count) {
-        if (current_table_field == NULL) {
-            logger(LL_ERROR, __func__, "Row has less fields than table %s", table_name);
-            return false;
-        }
-
-        current_table_field = current_table_field->next;
-        current_table_field_index++;
-    }
-
-    if (current_table_field != NULL) {
-        logger(LL_ERROR, __func__, "Row has more fields than table %s", table_name);
-        return false;
-    }
-
-    return true;
-}
-
 uint64_t calculate_table_data_size(struct TableField *first_table_field) {
     uint64_t table_data_field_size = 0;
 
@@ -126,13 +102,106 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
     return 0;
 }
 
+bool parameter_check_equal(const void *file_data_pointer,
+                           uint64_t value_to_cmp_offset,
+                           const struct OperationPredicateParameter *current_parameter) {
+    return memcmp(current_parameter->value,
+                  (char *) file_data_pointer +
+                  value_to_cmp_offset,
+                  current_parameter->value_size) != 0;
+}
+
+bool parameter_check_not_equal(const void *file_data_pointer,
+                               uint64_t value_to_cmp_offset,
+                               const struct OperationPredicateParameter *current_parameter) {
+    return !parameter_check_equal(file_data_pointer, value_to_cmp_offset, current_parameter);
+}
+
+bool parameter_check_greater_than(const void *file_data_pointer,
+                                  uint64_t value_to_cmp_offset,
+                                  const struct OperationPredicateParameter *current_parameter) {
+    return memcmp(current_parameter->value,
+                  (char *) file_data_pointer +
+                  value_to_cmp_offset,
+                  current_parameter->value_size) >= 0;
+}
+
+bool parameter_check_less_than(const void *file_data_pointer,
+                               uint64_t value_to_cmp_offset,
+                               const struct OperationPredicateParameter *current_parameter) {
+    return memcmp(current_parameter->value,
+                  (char *) file_data_pointer +
+                  value_to_cmp_offset,
+                  current_parameter->value_size) <= 0;
+}
+
 bool predicate_result_on_element(void *file_data_pointer,
                                  uint64_t table_data_element_offset,
+                                 uint64_t table_metadata_element_offset,
                                  struct OperationPredicateParameter *parameters) {
-    if (parameters == NULL) {
-        return true;
+    struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) (
+        (char *) file_data_pointer +
+        table_metadata_element_offset +
+        ELEMENT_VALUE_OFFSET);
+
+    struct OperationPredicateParameter *current_parameter = parameters;
+
+    while (current_parameter != NULL) {
+        uint64_t current_table_data_field_element_offset = table_data_element_offset + ELEMENT_VALUE_OFFSET +
+                                                           TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET;
+        struct TableDataFieldElement *current_table_data_field_element = (struct TableDataFieldElement *) (
+            (char *) file_data_pointer +
+            table_data_element_offset +
+            ELEMENT_VALUE_OFFSET +
+            TABLE_DATA_ELEMENT_FIRST_FIELD_OFFSET);
+        uint64_t current_column_index = 0;
+
+        // find column for parameter
+        while (strcmp(current_parameter->column_name, table_metadata_element->columns[current_column_index].name) !=
+               0) {
+            current_column_index++;
+            current_table_data_field_element = (struct TableDataFieldElement *) (
+                (char *) current_table_data_field_element +
+                sizeof(struct TableDataFieldElement) +
+                current_table_data_field_element->field_size);
+            current_table_data_field_element_offset = current_table_data_field_element->next_field_offset;
+        }
+
+        if (current_parameter->value_size != current_table_data_field_element->field_size) {
+            logger(LL_WARN, __func__, "Parameter value size is not equal to column value size: %ld != %ld",
+                   current_parameter->value_size, current_table_data_field_element->field_size);
+            return false;
+        }
+
+        uint64_t value_to_cmp_offset = current_table_data_field_element_offset + sizeof(struct TableDataFieldElement);
+
+        switch (current_parameter->predicate_operator) {
+            case PO_EQUAL:
+                if (parameter_check_equal(file_data_pointer, value_to_cmp_offset, current_parameter)) {
+                    return false;
+                }
+                break;
+            case PO_NOT_EQUAL:
+                if (parameter_check_not_equal(file_data_pointer, value_to_cmp_offset, current_parameter)) {
+                    return false;
+                }
+                break;
+            case PO_GREATER_THAN:
+                if (parameter_check_greater_than(file_data_pointer, value_to_cmp_offset, current_parameter)) {
+                    return false;
+                }
+                break;
+            case PO_LESS_THAN:
+                if (parameter_check_less_than(file_data_pointer, value_to_cmp_offset, current_parameter)) {
+                    return false;
+                }
+                break;
+        }
+
+        current_parameter = current_parameter->next;
     }
 
+    logger(LL_INFO, __func__, "Row at offset %ld matches predicate", table_data_element_offset);
     return true;
 }
 
@@ -224,7 +293,8 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
         logger(LL_DEBUG, __func__, "Selecting row at offset %ld", current_table_data_element_offset);
         uint64_t prev_of_table_offset = current_table_data_element->prev_of_table_offset;
 
-        if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
+        if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, table_metadata_offset,
+                                        parameters)) {
             return (struct SelectResultIterator) {.has_element = true, .has_more = true, .current_element_offset = current_table_data_element_offset};
         }
 
@@ -234,7 +304,8 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
                                                                   current_table_data_element_offset);
     }
 
-    if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, parameters)) {
+    if (predicate_result_on_element(file_data_pointer, current_table_data_element_offset, table_metadata_offset,
+                                    parameters)) {
         return (struct SelectResultIterator) {.has_element = true, .has_more = false, .current_element_offset = current_table_data_element_offset};
     }
 
