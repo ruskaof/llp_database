@@ -284,6 +284,7 @@ void data_operations_simple_insertions() {
     bool *table1_row1_field2_value2 = (bool *) table1_row1->next->value;
     assert(*table1_row1_field2_value2 == true);
 
+    free(table1_row1->value);
     free(table1_row1);
 
     // insert one more row to the first table
@@ -320,6 +321,7 @@ void data_operations_simple_insertions() {
     bool *table1_row2_field2_value2 = (bool *) table1_row2->next->value;
     assert(*table1_row2_field2_value2 == false);
 
+    free(table1_row2->value);
     free(table1_row2);
 
     select_result_iterator = get_next(&select_result_iterator);
@@ -335,6 +337,7 @@ void data_operations_simple_insertions() {
     bool *table1_row1_field2_value3 = (bool *) table1_row1_2->next->value;
     assert(*table1_row1_field2_value3 == true);
 
+    free(table1_row1_2->value);
     free(table1_row1_2);
 
     close_file();
@@ -487,6 +490,7 @@ void data_operations_simple_insertions2() {
     assert(memcmp(table2_row2->next->next->value, expected_string_value, 2 * 1024) == 0);
     free(expected_string_value);
 
+    free(table2_row2->value);
     free(table2_row2);
 
     select_result_iterator = get_next(&select_result_iterator);
@@ -519,6 +523,8 @@ void data_operations_simple_insertions2() {
     *((int64_t *) predicate_parameter->value) = 124;
 
     struct SelectResultIterator select_result_iterator2 = operation_select("test_table2", predicate_parameter);
+    free(predicate_parameter->value);
+    free(predicate_parameter);
     assert(select_result_iterator2.has_element);
     assert(!select_result_iterator2.has_more);
 
@@ -535,6 +541,7 @@ void data_operations_simple_insertions2() {
     memset(expected_string_value, 'a', 3 * 1024);
     assert(memcmp(table2_row1_2->next->next->value, expected_string_value, 3 * 1024) == 0);
     free(expected_string_value);
+    free(table2_row1_2->value);
     free(table2_row1_2);
 
     close_file();
