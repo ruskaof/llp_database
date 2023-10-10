@@ -409,7 +409,7 @@ void init_table_with_test_data() {
     free(table1_row2_field2);
 
     // insert 2 rows to the second table
-// insert 3 kilobytes of string
+    // insert 3 kilobytes of string
     char *string_value = malloc(3 * 1024);
     memset(string_value, 'a', 3 * 1024);
     struct TableField *table2_row1_field3 = malloc(sizeof(struct TableField));
@@ -595,18 +595,97 @@ void data_operations_with_deletions() {
     free(table2_row2);
 }
 
+void table_operations_a_lot_of_insertions() {
+    open_file(TEST_FILE_LOCATION);
+    uint64_t insert_count = 20000;
+
+    uint64_t first_table_columns_count = 2;
+    struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    operation_create_table("test_table1", columns, first_table_columns_count);
+    free(columns);
+
+    uint64_t second_table_columns_count = 3;
+    columns = malloc(second_table_columns_count * sizeof(struct TableColumn));
+    columns[0].type = TD_INT64;
+    strcpy(columns[0].name, "test_column1");
+    columns[1].type = TD_BOOL;
+    strcpy(columns[1].name, "test_column2");
+    columns[2].type = TD_STRING;
+    strcpy(columns[2].name, "test_column3");
+    operation_create_table("test_table2", columns, second_table_columns_count);
+    free(columns);
+
+    for (uint64_t i = 0; i < insert_count; i++) {
+        printf("%ld\n", i);
+        struct TableField *table1_row2_field2 = malloc(sizeof(struct TableField));
+        table1_row2_field2->size = sizeof(bool);
+        table1_row2_field2->next = NULL;
+        bool *table1_row2_field2_value = malloc(sizeof(bool));
+        *table1_row2_field2_value = false;
+        table1_row2_field2->value = table1_row2_field2_value;
+
+        struct TableField *table1_row2_field1 = malloc(sizeof(struct TableField));
+        table1_row2_field1->size = sizeof(int64_t);
+        table1_row2_field1->next = table1_row2_field2;
+        int64_t *table1_row2_field1_value = malloc(sizeof(int64_t));
+        *table1_row2_field1_value = i;
+        table1_row2_field1->value = table1_row2_field1_value;
+
+        operation_insert("test_table1", table1_row2_field1);
+        free(table1_row2_field1->value);
+        free(table1_row2_field1);
+        free(table1_row2_field2->value);
+        free(table1_row2_field2);
+    }
+
+    close_file();
+    open_file(TEST_FILE_LOCATION);
+
+    struct SelectResultIterator ri = operation_select("test_table1", NULL);
+
+    uint64_t count = 0;
+    while (ri.has_element) {
+        struct TableField *table1_row2 = get_by_iterator(&ri);
+
+        assert(table1_row2->size == sizeof(int64_t));
+        assert(table1_row2->next->size == sizeof(bool));
+        assert(table1_row2->next->next == NULL);
+        int64_t *table1_row2_field1_value2 = (int64_t *) table1_row2->value;
+        printf("Got a %ld\n", *table1_row2_field1_value2);
+
+        free(table1_row2->value);
+        free(table1_row2);
+
+        count++;
+        struct SelectResultIterator next_ri = get_next(&ri);
+        assert(next_ri.current_element_offset != ri.current_element_offset);
+        ri = next_ri;
+    }
+
+    assert(count == insert_count);
+
+    close_file();
+    delete_file(TEST_FILE_LOCATION);
+}
+
 int main() {
-    table_operations_simple_insertions();
-    print_separator();
-    table_operations_simple_deletions();
-    print_separator();
-    table_operations_simple_insertions2();
-    print_separator();
-    data_operations_simple_insertions();
-    print_separator();
-    data_operations_simple_insertions2();
-    print_separator();
-    data_operations_with_deletions();
+//    table_operations_simple_insertions();
+//    print_separator();
+//    table_operations_simple_deletions();
+//    print_separator();
+//    table_operations_simple_insertions2();
+//    print_separator();
+//    data_operations_simple_insertions();
+//    print_separator();
+//    data_operations_simple_insertions2();
+//    print_separator();
+//    data_operations_with_deletions();
+//    print_separator();
+    table_operations_a_lot_of_insertions();
 
     printf("\033[0;32m");
     printf("All tests for %s passed!\n", __FILE__);

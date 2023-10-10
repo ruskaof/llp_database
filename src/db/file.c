@@ -71,8 +71,6 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
     logger(LL_DEBUG, __func__, "Unmapping file with pointer %p and file size %ld.",
            file_data_pointer, file_size);
 
-    sync_file();
-
     int result = munmap(file_data_pointer, file_size);
 
     if (result != 0) {
@@ -81,6 +79,12 @@ int munmap_file(void *file_data_pointer, uint64_t file_size) {
         return -1;
     }
 
+    int sync_result = sync_file();
+    if (sync_result == -1) {
+        logger(LL_ERROR, __func__, "Could not sync file with pointer %p and file size %ld.",
+               file_data_pointer, file_size);
+        return -1;
+    }
 
     return 0;
 }

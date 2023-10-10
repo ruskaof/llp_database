@@ -69,8 +69,9 @@ void fill_newly_allocated_element_with_data(struct TableField *first_table_field
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) ((char *) file_data_pointer +
                                                                                            table_metadata_element_offset +
                                                                                            ELEMENT_VALUE_OFFSET);
-
     table_data_element->has_prev_of_table = table_metadata_element->has_rows;
+    logger(LL_WARN, "DEBUG_DEADLYSIGNAL", "table_metadata_element->last_row_offset: %ld",
+           table_metadata_element->last_row_offset);
     table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
 
     table_metadata_element->has_rows = true;
@@ -98,6 +99,7 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
         return -1;
     }
 
+    logger(LL_WARN, "DEBUG_DEADLYSIGNAL", "table_data_element_offset: %ld", table_data_element_offset);
     fill_newly_allocated_element_with_data(first_table_field, table_data_element_offset, table_metadata_offset);
     return 0;
 }
@@ -315,6 +317,8 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
 }
 
 struct SelectResultIterator get_next(struct SelectResultIterator *iterator) {
+    logger(LL_INFO, __func__, "Getting next element from iterator with current offset %ld",
+           iterator->current_element_offset);
     if (!iterator->has_element) {
         logger(LL_ERROR, __func__, "Cannot get next element from iterator without element");
         return (struct SelectResultIterator) {.has_element = false, .has_more = false};
@@ -344,7 +348,17 @@ struct SelectResultIterator get_next(struct SelectResultIterator *iterator) {
     struct TableDataElement *prev_table_data_element = (struct TableDataElement *) ((char *) file_data_pointer +
                                                                                     ELEMENT_VALUE_OFFSET +
                                                                                     current_table_data_element->prev_of_table_offset);
-    return (struct SelectResultIterator) {.has_element = true, .has_more = prev_table_data_element->has_prev_of_table, .current_element_offset = current_table_data_element->prev_of_table_offset};
+
+    bool has_more_elements_result = prev_table_data_element->has_prev_of_table;
+    uint64_t current_element_offset_result = current_table_data_element->prev_of_table_offset;
+
+    int munmap_result = munmap_file(file_data_pointer, get_file_size());
+    if (munmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot munmap file");
+        return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    }
+
+    return (struct SelectResultIterator) {.has_element = true, .has_more = has_more_elements_result, .current_element_offset = current_element_offset_result};
 }
 
 struct TableField *get_by_iterator(struct SelectResultIterator *iterator) {
@@ -403,6 +417,12 @@ struct TableField *get_by_iterator(struct SelectResultIterator *iterator) {
         first_table_field = table_field;
     } else {
         current_table_field->next = table_field;
+    }
+
+    int munmap_result = munmap_file(file_data_pointer, get_file_size());
+    if (munmap_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot munmap file");
+        return NULL;
     }
 
     return first_table_field;
