@@ -3,8 +3,6 @@ project(llp_database C)
 
 set(CMAKE_C_STANDARD 17)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -fstack-protector -D_FORTIFY_SOURCE=2 -fsanitize=address")
-
 add_library(llp_database
         src/utils/logging.c
         src/utils/logging.h

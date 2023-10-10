@@ -4,7 +4,7 @@ import time
 from matplotlib import pyplot as plt
 
 # insertions, updates, selects
-test_type = "selects"
+test_type = "insertions"
 
 if __name__ == '__main__':
     os.system("rm -rf performance_test_build && mkdir performance_test_build")
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     os.system("cmake --build performance_test_build --target performance_test")
 
     results = []
-    for i in range(0, 200):
+    for i in range(0, 2000):
         curr_time = time.time()
         os.system(f'./performance_test_build/performance_test {test_type} ' + str(i))
         results.append(time.time() - curr_time)
