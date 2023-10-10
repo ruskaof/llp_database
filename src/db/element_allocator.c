@@ -3,7 +3,7 @@
 //
 
 #include "element_allocator.h"
-#include "file_private.h"
+#include "file.h"
 
 #include "../utils/logging.h"
 

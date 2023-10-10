@@ -8,8 +8,9 @@
 #include "element.h"
 #include "table_metadata.h"
 #include "element_allocator.h"
-#include "file_private.h"
+#include "file.h"
 #include "table_data.h"
+#include "comparator.h"
 
 uint64_t calculate_table_data_size(struct TableField *first_table_field) {
     uint64_t table_data_field_size = 0;
@@ -62,8 +63,8 @@ void fill_newly_allocated_element_with_data(struct TableField *first_table_field
 
     struct TableMetadataElement *table_metadata_element = (struct TableMetadataElement *) (
         (char *) get_file_data_pointer() +
-                                                                                           table_metadata_element_offset +
-                                                                                           ELEMENT_VALUE_OFFSET);
+        table_metadata_element_offset +
+        ELEMENT_VALUE_OFFSET);
     table_data_element->has_prev_of_table = table_metadata_element->has_rows;
     table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
 
@@ -94,35 +95,6 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
     return 0;
 }
 
-bool parameter_check_equal(uint64_t value_to_cmp_offset,
-                           const struct OperationPredicateParameter *current_parameter) {
-    return memcmp(current_parameter->value,
-                  (char *) get_file_data_pointer() +
-                  value_to_cmp_offset,
-                  current_parameter->value_size) != 0;
-}
-
-bool parameter_check_not_equal(uint64_t value_to_cmp_offset,
-                               const struct OperationPredicateParameter *current_parameter) {
-    return !parameter_check_equal(value_to_cmp_offset, current_parameter);
-}
-
-bool parameter_check_greater_than(uint64_t value_to_cmp_offset,
-                                  const struct OperationPredicateParameter *current_parameter) {
-    return memcmp(current_parameter->value,
-                  (char *) get_file_data_pointer() +
-                  value_to_cmp_offset,
-                  current_parameter->value_size) >= 0;
-}
-
-bool parameter_check_less_than(uint64_t value_to_cmp_offset,
-                               const struct OperationPredicateParameter *current_parameter) {
-    return memcmp(current_parameter->value,
-                  (char *) get_file_data_pointer() +
-                  value_to_cmp_offset,
-                  current_parameter->value_size) <= 0;
-}
-
 bool predicate_result_on_element(uint64_t table_data_element_offset,
                                  uint64_t table_metadata_element_offset,
                                  struct OperationPredicateParameter *parameters) {
@@ -144,45 +116,46 @@ bool predicate_result_on_element(uint64_t table_data_element_offset,
         uint64_t current_column_index = 0;
 
         // find column for parameter
-        while (strcmp(current_parameter->column_name, table_metadata_element->columns[current_column_index].name) !=
-               0) {
+        while (memcmp(current_parameter->column_name,
+                      table_metadata_element->columns[current_column_index].name,
+                      MAX_TABLE_COLUMN_NAME_LENGTH) != 0) {
+            logger(LL_DEBUG, __func__, "Comparing column name %s with %s",
+                   current_parameter->column_name,
+                   table_metadata_element->columns[current_column_index].name);
+
+            if (!current_table_data_field_element->has_next) {
+                logger(LL_WARN, __func__, "Cannot find column with name %s",
+                       current_parameter->column_name);
+                return false;
+            }
+
             current_column_index++;
-            current_table_data_field_element = (struct TableDataFieldElement *) (
-                (char *) current_table_data_field_element +
-                sizeof(struct TableDataFieldElement) +
-                current_table_data_field_element->field_size);
             current_table_data_field_element_offset = current_table_data_field_element->next_field_offset;
+            current_table_data_field_element = (struct TableDataFieldElement *) (
+                (char *) get_file_data_pointer() +
+                current_table_data_field_element_offset);
         }
 
-        if (current_parameter->value_size != current_table_data_field_element->field_size) {
-            logger(LL_WARN, __func__, "Parameter value size is not equal to column value size: %ld != %ld",
-                   current_parameter->value_size, current_table_data_field_element->field_size);
-            return false;
-        }
-
-        uint64_t value_to_cmp_offset = current_table_data_field_element_offset + sizeof(struct TableDataFieldElement);
+        enum TableDatatype values_types = table_metadata_element->columns[current_column_index].type;
+        uint64_t parameter_value_size = current_parameter->value_size;
+        uint64_t column_value_size = current_table_data_field_element->field_size;
+        void *parameter_value = current_parameter->value;
+        void *column_value = (char *) get_file_data_pointer() + current_table_data_field_element_offset +
+                             sizeof(struct TableDataFieldElement);
 
         switch (current_parameter->predicate_operator) {
             case PO_EQUAL:
-                if (parameter_check_equal(value_to_cmp_offset, current_parameter)) {
-                    return false;
-                }
-                break;
+                return first_value_is_equal_to_second(values_types, parameter_value_size, column_value_size,
+                                                      parameter_value, column_value);
             case PO_NOT_EQUAL:
-                if (parameter_check_not_equal(value_to_cmp_offset, current_parameter)) {
-                    return false;
-                }
-                break;
+                return !first_value_is_equal_to_second(values_types, parameter_value_size, column_value_size,
+                                                       parameter_value, column_value);
             case PO_GREATER_THAN:
-                if (parameter_check_greater_than(value_to_cmp_offset, current_parameter)) {
-                    return false;
-                }
-                break;
+                return first_value_is_greater_than_second(values_types, parameter_value_size, column_value_size,
+                                                          parameter_value, column_value);
             case PO_LESS_THAN:
-                if (parameter_check_less_than(value_to_cmp_offset, current_parameter)) {
-                    return false;
-                }
-                break;
+                return first_value_is_less_than_second(values_types, parameter_value_size, column_value_size,
+                                                       parameter_value, column_value);
         }
 
         current_parameter = current_parameter->next;
@@ -270,7 +243,7 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
 
         if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
                                         parameters)) {
-            return (struct SelectResultIterator) {.has_element = true, .has_more = true, .current_element_offset = current_table_data_element_offset};
+            return (struct SelectResultIterator) {.has_element = true, .has_more = true, .current_element_offset = current_table_data_element_offset, .parameters = parameters, .table_metadata_offset=table_metadata_offset};
         }
 
         current_table_data_element_offset = prev_of_table_offset;
@@ -281,10 +254,10 @@ operation_select(char *table_name, struct OperationPredicateParameter *parameter
 
     if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
                                     parameters)) {
-        return (struct SelectResultIterator) {.has_element = true, .has_more = false, .current_element_offset = current_table_data_element_offset};
+        return (struct SelectResultIterator) {.has_element = true, .has_more = false, .current_element_offset = current_table_data_element_offset, .parameters = parameters, .table_metadata_offset=table_metadata_offset};
     }
 
-    return (struct SelectResultIterator) {.has_element = false, .has_more = false};
+    return (struct SelectResultIterator) {.has_element = false, .has_more = false, .parameters = parameters, .table_metadata_offset=table_metadata_offset};
 }
 
 struct SelectResultIterator get_next(struct SelectResultIterator *iterator) {
@@ -302,27 +275,39 @@ struct SelectResultIterator get_next(struct SelectResultIterator *iterator) {
 
     struct TableDataElement *current_table_data_element = (struct TableDataElement *) (
         (char *) get_file_data_pointer() +
-                                                                                       ELEMENT_VALUE_OFFSET +
-                                                                                       iterator->current_element_offset);
+        ELEMENT_VALUE_OFFSET +
+        iterator->current_element_offset);
 
     if (!current_table_data_element->has_prev_of_table) {
         logger(LL_ERROR, __func__, "Cannot get next element from iterator without next element");
         return (struct SelectResultIterator) {.has_element = false, .has_more = false};
     }
 
-    struct TableDataElement *prev_table_data_element = (struct TableDataElement *) ((char *) get_file_data_pointer() +
-                                                                                    ELEMENT_VALUE_OFFSET +
-                                                                                    current_table_data_element->prev_of_table_offset);
+    while (current_table_data_element->has_prev_of_table) {
+        struct TableDataElement *prev_table_data_element = (struct TableDataElement *) (
+            (char *) get_file_data_pointer() +
+            ELEMENT_VALUE_OFFSET +
+            current_table_data_element->prev_of_table_offset);
 
-    bool has_more_elements_result = prev_table_data_element->has_prev_of_table;
-    uint64_t current_element_offset_result = current_table_data_element->prev_of_table_offset;
+        if (predicate_result_on_element(current_table_data_element->prev_of_table_offset,
+                                        iterator->table_metadata_offset,
+                                        iterator->parameters)) {
+            return (struct SelectResultIterator) {.has_element = true,
+                .has_more = prev_table_data_element->has_prev_of_table,
+                .current_element_offset = current_table_data_element->prev_of_table_offset,
+                .table_metadata_offset = iterator->table_metadata_offset,
+                .parameters = iterator->parameters};
+        }
 
-    return (struct SelectResultIterator) {.has_element = true, .has_more = has_more_elements_result, .current_element_offset = current_element_offset_result};
+        current_table_data_element = prev_table_data_element;
+    }
+
+    return (struct SelectResultIterator) {.has_element = false, .has_more = false};
 }
 
 struct TableField *get_by_iterator(struct SelectResultIterator *iterator) {
     if (!iterator->has_element) {
-        logger(LL_ERROR, __func__, "Cannot get element from iterator without element");
+        logger(LL_DEBUG, __func__, "Cannot get element from iterator without element");
         return NULL;
     }
 
@@ -411,10 +396,10 @@ int operation_delete(char *table_name, struct OperationPredicateParameter *param
         current_table_data_element_offset);
 
     while (current_table_data_element->has_prev_of_table) {
-        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
 
         if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
                                         parameters)) {
+            logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
             previous_table_data_element->has_prev_of_table = current_table_data_element->has_prev_of_table;
             previous_table_data_element->prev_of_table_offset = current_table_data_element->prev_of_table_offset;
             delete_element(current_table_data_element_offset);

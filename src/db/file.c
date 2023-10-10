@@ -2,7 +2,7 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#include "file_private.h"
+#include "file.h"
 #include "../utils/logging.h"
 
 #include <unistd.h>
@@ -25,7 +25,7 @@ void *get_file_data_pointer() {
 
 int fd;
 
-int open_file(const char *filename) {
+int init_db(const char *filename) {
     logger(LL_DEBUG, __func__, "Opening file %s.", filename);
 
     fd = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
@@ -40,7 +40,7 @@ int open_file(const char *filename) {
     return 0;
 }
 
-int close_file() {
+int close_db() {
     logger(LL_DEBUG, __func__, "Closing file with descriptor %d.", fd);
 
     int close_result = close(fd);
@@ -124,7 +124,7 @@ int mmap_file() {
     return 0;
 }
 
-int delete_file(const char *filename) {
+int delete_db_file(const char *filename) {
     logger(LL_DEBUG, __func__, "Deleting file with name %s.", filename);
 
     int result = unlink(filename);

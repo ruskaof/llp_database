@@ -2,10 +2,10 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#ifndef LLP_DATABASE_FILE_PRIVATE_H
-#define LLP_DATABASE_FILE_PRIVATE_H
+#ifndef LLP_DATABASE_FILE_H
+#define LLP_DATABASE_FILE_H
 
-#include "../../include/file.h"
+#include "../../include/db.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -20,6 +20,4 @@ int munmap_file();
 
 int mmap_file();
 
-int delete_file(const char *filename);
-
-#endif //LLP_DATABASE_FILE_PRIVATE_H
+#endif //LLP_DATABASE_FILE_H

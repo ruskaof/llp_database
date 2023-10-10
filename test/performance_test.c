@@ -4,7 +4,7 @@
 
 #include "../include/data_operations.h"
 #include "../include/table_operations.h"
-#include "../src/db/file_private.h"
+#include "../src/db/file.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +23,7 @@
 #endif
 
 void insertion_performance_tests(uint32_t n) {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
 
     char table_name[] = "test_table";
     struct TableColumn columns[] = {
@@ -94,8 +94,8 @@ void insertion_performance_tests(uint32_t n) {
     printf("Insertion of %d rows was successful.\n", n);
     printf("\033[0m");
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 int main(int argc, char **argv) {

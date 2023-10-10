@@ -5,7 +5,7 @@
 #include <string.h>
 #include "table_metadata.h"
 #include "../utils/logging.h"
-#include "file_private.h"
+#include "file.h"
 #include "element.h"
 
 int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset) {
@@ -15,6 +15,11 @@ int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset
     }
 
     struct FileHeader *file_header = get_file_data_pointer();
+    if (file_header == NULL) {
+        logger(LL_ERROR, __func__, "Cannot find table metadata offset in file without file header");
+        return -1;
+    }
+
     if (!file_header->has_table_metadata_elements) {
         logger(LL_ERROR, __func__, "Cannot find table metadata offset in file without table metadata elements");
         return -1;

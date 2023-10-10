@@ -5,7 +5,7 @@
 #include "../include/table.h"
 #include "../include/table_operations.h"
 #include "../include/data_operations.h"
-#include "../src/db/file_private.h"
+#include "../src/db/file.h"
 #include "../src/db/table_metadata.h"
 #include "../src/db/element.h"
 
@@ -71,7 +71,7 @@ void print_separator() {
 //}
 
 void table_operations_simple_insertions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
     mmap_file();
 
     uint64_t first_table_columns_count = 2;
@@ -121,12 +121,12 @@ void table_operations_simple_insertions() {
     assert(strcmp(table_metadata_element->columns[2].name, "test_column3") == 0);
 
     munmap_file();
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_simple_deletions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
     mmap_file();
 
     uint64_t first_table_columns_count = 2;
@@ -165,12 +165,12 @@ void table_operations_simple_deletions() {
     assert(!file_header->has_table_metadata_elements);
 
     munmap_file();
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_simple_insertions2() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
     mmap_file();
 
     uint64_t first_table_columns_count = 2;
@@ -220,12 +220,12 @@ void table_operations_simple_insertions2() {
     assert(strcmp(table_metadata_element->columns[2].name, "test_column3") == 0);
 
     munmap_file();
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void data_operations_simple_insertions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
 
     uint64_t first_table_columns_count = 2;
     struct TableColumn *columns = malloc(first_table_columns_count * sizeof(struct TableColumn));
@@ -339,8 +339,8 @@ void data_operations_simple_insertions() {
     free(table1_row1_2->value);
     free(table1_row1_2);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void init_table_with_test_data() {
@@ -470,7 +470,7 @@ void init_table_with_test_data() {
 }
 
 void data_operations_simple_insertions2() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
 
     init_table_with_test_data();
 
@@ -520,7 +520,7 @@ void data_operations_simple_insertions2() {
     struct OperationPredicateParameter *predicate_parameter = malloc(sizeof(struct OperationPredicateParameter));
     strcpy(predicate_parameter->column_name, "test_column1");
     predicate_parameter->next = NULL;
-    predicate_parameter->predicate_operator = PO_LESS_THAN;
+    predicate_parameter->predicate_operator = PO_GREATER_THAN;
     predicate_parameter->value = malloc(sizeof(int64_t));
     predicate_parameter->value_size = sizeof(int64_t);
     *((int64_t *) predicate_parameter->value) = 124;
@@ -547,12 +547,12 @@ void data_operations_simple_insertions2() {
     free(table2_row1_2->value);
     free(table2_row1_2);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void data_operations_with_deletions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
 
     init_table_with_test_data();
 
@@ -593,12 +593,12 @@ void data_operations_with_deletions() {
     free(table2_row2->value);
     free(table2_row2);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_a_lot_of_insertions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
     uint64_t insert_count = 20000;
 
     uint64_t first_table_columns_count = 2;
@@ -644,8 +644,8 @@ void table_operations_a_lot_of_insertions() {
         free(table1_row2_field2);
     }
 
-    close_file();
-    open_file(TEST_FILE_LOCATION);
+    close_db();
+    init_db(TEST_FILE_LOCATION);
 
     struct SelectResultIterator ri = operation_select("test_table1", NULL);
 
@@ -672,12 +672,12 @@ void table_operations_a_lot_of_insertions() {
     printf("INSERT_COUNT %ld\n", insert_count);
     assert(count == insert_count);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_a_lot_of_insertions_and_deletions() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
     uint64_t insert_count = 20000;
 
     uint64_t first_table_columns_count = 2;
@@ -756,8 +756,8 @@ void table_operations_a_lot_of_insertions_and_deletions() {
         free(predicate_parameter);
     }
 
-    close_file();
-    open_file(TEST_FILE_LOCATION);
+    close_db();
+    init_db(TEST_FILE_LOCATION);
 
     struct SelectResultIterator ri = operation_select("test_table1", NULL);
 
@@ -782,12 +782,12 @@ void table_operations_a_lot_of_insertions_and_deletions() {
 
     assert(count == insert_count - 1000);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void table_operations_updates() {
-    open_file(TEST_FILE_LOCATION);
+    init_db(TEST_FILE_LOCATION);
 
     init_table_with_test_data();
 
@@ -875,8 +875,8 @@ void table_operations_updates() {
     free(expected_string_value);
     free(table2_row1);
 
-    close_file();
-    delete_file(TEST_FILE_LOCATION);
+    close_db();
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 int main() {

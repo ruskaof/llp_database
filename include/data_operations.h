@@ -7,12 +7,6 @@
 
 #include "table.h"
 
-struct SelectResultIterator {
-    bool has_element;
-    bool has_more;
-    uint64_t current_element_offset;
-};
-
 enum PredicateOperator {
     PO_EQUAL,
     PO_NOT_EQUAL,
@@ -31,6 +25,14 @@ struct OperationPredicateParameter {
 struct SelectResultIterator
 operation_select(char *table_name, struct OperationPredicateParameter *parameters);
 
+struct SelectResultIterator {
+    bool has_element;
+    bool has_more;
+    uint64_t current_element_offset;
+    uint64_t table_metadata_offset;
+    struct OperationPredicateParameter *parameters;
+};
+
 struct TableField *get_by_iterator(struct SelectResultIterator *iterator);
 
 struct SelectResultIterator get_next(struct SelectResultIterator *iterator);
@@ -44,13 +46,5 @@ int operation_delete(char *table_name, struct OperationPredicateParameter *param
 int operation_update(char *table_name,
                      struct OperationPredicateParameter *parameters,
                      struct TableField *first_table_field);
-
-/**
- *
- * @param table_name The name of the table to update.
- * @param parameters Can be NULL if no parameters are needed.
- * @return 0 if the operation was successful, -1 otherwise.
- */
-//int operation_update(char *table_name, struct OperationPredicateParameters *parameters);
 
 #endif //LLP_DATABASE_DATA_OPERATIONS_H

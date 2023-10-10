@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-enum LogLevel program_log_level = LL_WARN;
+enum LogLevel program_log_level = LL_DEBUG;
 
 char *getLogLevelName(enum LogLevel log_level) {
     switch (log_level) {

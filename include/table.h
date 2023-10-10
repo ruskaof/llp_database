@@ -28,6 +28,12 @@ struct TableField {
     void *value;
 };
 
+void free_table_row(struct TableField *table_field);
+
+void free_table_row_without_values(struct TableField *table_field);
+
+struct TableField *create_table_row(uint64_t first_field_size, void *first_field_value, ...);
+
 struct TableColumn {
     TableColumnSchemaName name;
     enum TableDatatype type;
