@@ -22,19 +22,6 @@
 
 #endif
 
-void print_table_row(struct TableField *table_field) {
-    struct TableField *current_table_field = table_field;
-    while (current_table_field != NULL) {
-        if (current_table_field->size == sizeof(int64_t)) {
-            printf("%ld ", *(int64_t *) current_table_field->value);
-        } else if (current_table_field->size == sizeof(char) * 5) {
-            printf("%s ", (char *) current_table_field->value);
-        }
-        current_table_field = current_table_field->next;
-    }
-    printf("\n");
-}
-
 void join_test() {
     init_db(TEST_FILE_LOCATION);
 

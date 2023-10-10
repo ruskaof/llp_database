@@ -116,9 +116,8 @@ bool predicate_result_on_element(uint64_t table_data_element_offset,
         uint64_t current_column_index = 0;
 
         // find column for parameter
-        while (memcmp(current_parameter->column_name,
-                      table_metadata_element->columns[current_column_index].name,
-                      MAX_TABLE_COLUMN_NAME_LENGTH) != 0) {
+        while (strcmp(current_parameter->column_name,
+                      table_metadata_element->columns[current_column_index].name) != 0) {
             logger(LL_DEBUG, __func__, "Comparing column name %s with %s",
                    current_parameter->column_name,
                    table_metadata_element->columns[current_column_index].name);
