@@ -7,7 +7,7 @@
 #include "../utils/logging.h"
 #include "table_metadata.h"
 #include "element_allocator.h"
-#include "file.h"
+#include "file_private.h"
 
 #include <string.h>
 

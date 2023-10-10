@@ -8,7 +8,7 @@
 #include "element.h"
 #include "table_metadata.h"
 #include "element_allocator.h"
-#include "file.h"
+#include "file_private.h"
 #include "table_data.h"
 
 uint64_t calculate_table_data_size(struct TableField *first_table_field) {

@@ -5,7 +5,7 @@
 #include <string.h>
 #include "table_metadata.h"
 #include "../utils/logging.h"
-#include "file.h"
+#include "file_private.h"
 #include "element.h"
 
 int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset) {

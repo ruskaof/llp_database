@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../src/db/file.h"
+#include "../src/db/file_private.h"
 #include "../src/db/element_allocator.h"
 
 #if defined(__linux__) || defined(__APPLE__)

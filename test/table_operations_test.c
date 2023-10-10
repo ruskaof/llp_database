@@ -5,7 +5,7 @@
 #include "../include/table.h"
 #include "../include/table_operations.h"
 #include "../include/data_operations.h"
-#include "../src/db/file.h"
+#include "../src/db/file_private.h"
 #include "../src/db/table_metadata.h"
 #include "../src/db/element.h"
 

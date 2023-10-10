@@ -2,7 +2,7 @@
 // Created by ruskaof on 1/10/23.
 //
 
-#include "file.h"
+#include "file_private.h"
 #include "../utils/logging.h"
 
 #include <unistd.h>

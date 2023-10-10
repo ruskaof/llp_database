@@ -1,5 +1,5 @@
 //
-// Created by d.rusinov on 23.09.2023.
+// Created by ruskaof on 23.09.2023.
 //
 
 #include "logging.h"
@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-enum LogLevel program_log_level = LL_DEBUG;
+enum LogLevel program_log_level = LL_WARN;
 
 char *getLogLevelName(enum LogLevel log_level) {
     switch (log_level) {

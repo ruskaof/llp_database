@@ -3,7 +3,7 @@
 //
 
 #include "element_allocator.h"
-#include "file.h"
+#include "file_private.h"
 
 #include "../utils/logging.h"
 
@@ -295,7 +295,9 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
 
     void *file_data_pointer;
 
-    int mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+    uint64_t file_size = get_file_size();
+
+    int mmap_result = mmap_file(&file_data_pointer, 0, file_size);
     if (mmap_result == -1) {
         return -1;
     }
@@ -321,7 +323,7 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
 
         init_new_element_offsets(element_type, *element_offset, file_data_pointer);
 
-        int munmap_result = munmap_file(file_data_pointer, get_file_size());
+        int munmap_result = munmap_file(file_data_pointer, file_size);
         if (munmap_result == -1) {
             return -1;
         }
@@ -334,22 +336,25 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
     struct ElementHeader *last_element_header = (struct ElementHeader *) ((char *) file_data_pointer +
                                                                           file_header->last_element_offset);
 
-    if (get_file_size() - (file_header->last_element_offset + last_element_header->element_size) <
-        requested_element_size) {
+    if (get_file_size() <
+        requested_element_size + (file_header->last_element_offset + last_element_header->element_size)) {
         logger(LL_DEBUG, __func__, "File size is not enough to allocate new element.");
 
-        int munmap_result = munmap_file(file_data_pointer, get_file_size());
+        int munmap_result = munmap_file(file_data_pointer, file_size);
         if (munmap_result == -1) {
             return -1;
         }
 
-        int change_file_size_result = change_file_size(get_file_size() + ALLOC_SIZE);
+        uint64_t new_file_size = get_file_size() + ALLOC_SIZE + requested_element_size;
+        int change_file_size_result = change_file_size(new_file_size);
         if (change_file_size_result == -1) {
             logger(LL_ERROR, __func__, "Could not change file size.");
             return -1;
         }
 
-        mmap_result = mmap_file(&file_data_pointer, 0, get_file_size());
+        file_size = new_file_size;
+
+        mmap_result = mmap_file(&file_data_pointer, 0, file_size);
         if (mmap_result == -1) {
             return -1;
         }
@@ -372,7 +377,7 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
 
     init_new_element_offsets(element_type, *element_offset, file_data_pointer);
 
-    int munmap_result = munmap_file(file_data_pointer, get_file_size());
+    int munmap_result = munmap_file(file_data_pointer, file_size);
     if (munmap_result == -1) {
         return -1;
     }
