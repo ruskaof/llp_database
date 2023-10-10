@@ -466,6 +466,7 @@ void allocator_test_on_merging_deleted2() {
                              false, 0,
                              false, 0, first_allocated_element_offset);
 
+    close_db();
     delete_db_file(TEST_FILE_LOCATION);
 }
 

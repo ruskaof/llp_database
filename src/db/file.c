@@ -153,7 +153,7 @@ int delete_db_file(const char *filename) {
 
 HANDLE hFile;
 
-int open_file(const char *filename) {
+int init_db(const char *filename) {
     logger(LL_DEBUG, __func__, "Opening file %s.", filename);
 
     hFile = CreateFile(filename, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -168,7 +168,7 @@ int open_file(const char *filename) {
     return 0;
 }
 
-int close_file() {
+int close_db() {
     logger(LL_DEBUG, __func__, "Closing file with handle %p.", hFile);
 
     int close_result = CloseHandle(hFile);
@@ -264,7 +264,7 @@ int mmap_file() {
     return 0;
 }
 
-int delete_file(const char *filename) {
+int delete_db_file(const char *filename) {
     logger(LL_DEBUG, __func__, "Deleting file with name %s.", filename);
 
     int result = DeleteFile(filename);
