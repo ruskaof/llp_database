@@ -2,8 +2,8 @@
 
 Запуск тестов:
 
-cmake . -B build-dir
-cmake --build build-dir --target all
+cmake . -B build
+cmake --build build --target all
 
 Запуск performance тестов:
 
