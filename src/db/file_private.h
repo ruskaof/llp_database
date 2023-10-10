@@ -10,13 +10,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+void *get_file_data_pointer();
+
+uint64_t get_file_size();
+
 int change_file_size(uint64_t new_size);
 
-int sync_file();
+int munmap_file();
 
-int munmap_file(void *file_data_pointer, uint64_t file_size);
-
-int mmap_file(void **file_data_pointer, uint64_t offset, uint64_t size);
+int mmap_file();
 
 int delete_file(const char *filename);
 

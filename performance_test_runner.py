@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # run executable with different parameters and show graph of time complexity
 
     results = []
-    for i in range(0, 1000):
+    for i in range(0, 100):
         curr_time = time.time()
         os.system("./performance_test_build/performance_test insertion " + str(i))
         results.append(time.time() - curr_time)
@@ -22,3 +22,6 @@ if __name__ == '__main__':
         print("Time in seconds: " + str(results[-1]))
 
     plt.plot(results)
+    plt.ylabel('Time in seconds')
+    plt.xlabel('Number of elements')
+    plt.show()
