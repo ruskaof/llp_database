@@ -112,7 +112,6 @@ void update_performance_tests(uint32_t n) {
     int create_table_result = operation_create_table(table_name, columns, columns_count);
     if (create_table_result == -1) {
         printf("Cannot create table\n");
-        return;
     }
 
     struct TableField *fifth_table_field = malloc(sizeof(struct TableField));
@@ -199,7 +198,7 @@ void update_performance_tests(uint32_t n) {
         first_table_field = malloc(sizeof(struct TableField));
         first_table_field->size = sizeof(int64_t);
         first_table_field->value = malloc(sizeof(int64_t));
-        *(int64_t *) first_table_field->value = i;
+        *(int64_t *) first_table_field->value = 1;
         first_table_field->next = second_table_field;
 
         int update_result = operation_update(table_name, &parameter, first_table_field);
@@ -214,7 +213,7 @@ void update_performance_tests(uint32_t n) {
     printf("Update of %d rows was successful.\n", n);
 
     close_db();
-    delete_db_file(TEST_FILE_LOCATION);
+    //delete_db_file(TEST_FILE_LOCATION);
 }
 
 void selects_performance_tests(uint32_t n) {

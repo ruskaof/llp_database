@@ -198,6 +198,7 @@ void init_new_element_offsets_for_deleted_element(const uint64_t new_element_off
     file_header->has_deleted_elements = true;
     file_header->last_deleted_element_offset = new_element_offset;
     allocated_element_header->has_next_element_of_type = false;
+    allocated_element_header->element_type = ET_DELETED;
 }
 
 void init_new_element_offsets(enum ElementType element_type, const uint64_t element_offset) {
@@ -307,7 +308,7 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
         return 0;
     }
 
-    logger(LL_DEBUG, __func__, "Could not find suitable deleted page of size %ld.", requested_element_size);
+    logger(LL_DEBUG, __func__, "Could not find suitable deleted element of size %ld.", requested_element_size);
 
     struct ElementHeader *last_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
                                                                           file_header->last_element_offset);

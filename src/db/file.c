@@ -37,6 +37,14 @@ int init_db(const char *filename) {
 
     file_size = (uint64_t) lseek(fd, 0, SEEK_END);
 
+    if (file_size != 0) {
+        int mmap_result = mmap_file();
+        if (mmap_result == -1) {
+            logger(LL_ERROR, __func__, "Could not mmap file.");
+            return -1;
+        }
+    }
+
     return 0;
 }
 

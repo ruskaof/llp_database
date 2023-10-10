@@ -283,8 +283,7 @@ void data_operations_simple_insertions() {
     bool *table1_row1_field2_value2 = (bool *) table1_row1->next->value;
     assert(*table1_row1_field2_value2 == true);
 
-    free(table1_row1->value);
-    free(table1_row1);
+    free_table_row(table1_row1);
 
     // insert one more row to the first table
     struct TableField *table1_row2_field2 = malloc(sizeof(struct TableField));
@@ -320,8 +319,7 @@ void data_operations_simple_insertions() {
     bool *table1_row2_field2_value2 = (bool *) table1_row2->next->value;
     assert(*table1_row2_field2_value2 == false);
 
-    free(table1_row2->value);
-    free(table1_row2);
+    free_table_row(table1_row2);
 
     select_result_iterator = get_next(&select_result_iterator);
     assert(select_result_iterator.has_element);
@@ -336,8 +334,7 @@ void data_operations_simple_insertions() {
     bool *table1_row1_field2_value3 = (bool *) table1_row1_2->next->value;
     assert(*table1_row1_field2_value3 == true);
 
-    free(table1_row1_2->value);
-    free(table1_row1_2);
+    free_table_row(table1_row1_2);
 
     close_db();
     delete_db_file(TEST_FILE_LOCATION);
@@ -493,8 +490,7 @@ void data_operations_simple_insertions2() {
     assert(memcmp(table2_row2->next->next->value, expected_string_value, 2 * 1024) == 0);
     free(expected_string_value);
 
-    free(table2_row2->value);
-    free(table2_row2);
+    free_table_row(table2_row2);
 
     select_result_iterator = get_next(&select_result_iterator);
     assert(select_result_iterator.has_element);
@@ -514,7 +510,7 @@ void data_operations_simple_insertions2() {
     assert(memcmp(table2_row1->next->next->value, expected_string_value, 3 * 1024) == 0);
     free(expected_string_value);
 
-    free(table2_row1);
+    free_table_row(table2_row1);
 
     // run select on second table with an int64 filter
     struct OperationPredicateParameter *predicate_parameter = malloc(sizeof(struct OperationPredicateParameter));
@@ -544,8 +540,8 @@ void data_operations_simple_insertions2() {
     memset(expected_string_value, 'a', 3 * 1024);
     assert(memcmp(table2_row1_2->next->next->value, expected_string_value, 3 * 1024) == 0);
     free(expected_string_value);
-    free(table2_row1_2->value);
-    free(table2_row1_2);
+
+    free_table_row(table2_row1_2);
 
     close_db();
     delete_db_file(TEST_FILE_LOCATION);
@@ -852,8 +848,7 @@ void table_operations_updates() {
     assert(memcmp(table2_row2->next->next->value, expected_string_value, 3 * 1024) == 0);
     free(expected_string_value);
 
-    free(table2_row2->value);
-    free(table2_row2);
+    free_table_row(table2_row2);
 
     select_result_iterator2 = get_next(&select_result_iterator2);
     assert(select_result_iterator2.has_element);
@@ -872,8 +867,7 @@ void table_operations_updates() {
     memset(expected_string_value, 'b', 2 * 1024);
     assert(memcmp(table2_row1->next->next->value, expected_string_value, 2 * 1024) == 0);
 
-    free(expected_string_value);
-    free(table2_row1);
+    free_table_row(table2_row1);
 
     close_db();
     delete_db_file(TEST_FILE_LOCATION);
