@@ -7,7 +7,6 @@
 #include "table_metadata.h"
 #include "element_allocator.h"
 #include "file.h"
-#include "comparator.h"
 
 #include <string.h>
 

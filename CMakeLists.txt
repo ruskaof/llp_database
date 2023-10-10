@@ -9,7 +9,6 @@ add_library(llp_database
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
@@ -31,7 +30,6 @@ add_executable(element_allocator_test test/element_allocator_test.c
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
@@ -53,7 +51,6 @@ add_executable(table_operations_test test/table_operations_test.c
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
@@ -75,7 +72,6 @@ add_executable(join_test test/join_test.c
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
@@ -97,7 +93,6 @@ add_executable(performance_test test/performance_test.c
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h
@@ -119,7 +114,6 @@ add_executable(select_test
         src/utils/logging.c
         src/utils/logging.h
         src/db/file.c
-        src/db/page.c
         src/db/element.h
         src/db/data_operations.c
         include/data_operations.h

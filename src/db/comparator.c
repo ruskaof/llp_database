@@ -4,7 +4,6 @@
 
 #include <string.h>
 #include "comparator.h"
-#include "../utils/logging.h"
 
 size_t min(uint64_t size, uint64_t size1);
 
