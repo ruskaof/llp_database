@@ -70,8 +70,6 @@ void fill_newly_allocated_element_with_data(struct TableField *first_table_field
                                                                                            table_metadata_element_offset +
                                                                                            ELEMENT_VALUE_OFFSET);
     table_data_element->has_prev_of_table = table_metadata_element->has_rows;
-    logger(LL_WARN, "DEBUG_DEADLYSIGNAL", "table_metadata_element->last_row_offset: %ld",
-           table_metadata_element->last_row_offset);
     table_data_element->prev_of_table_offset = table_metadata_element->last_row_offset;
 
     table_metadata_element->has_rows = true;
@@ -99,7 +97,6 @@ int operation_insert(char *table_name, struct TableField *first_table_field) {
         return -1;
     }
 
-    logger(LL_WARN, "DEBUG_DEADLYSIGNAL", "table_data_element_offset: %ld", table_data_element_offset);
     fill_newly_allocated_element_with_data(first_table_field, table_data_element_offset, table_metadata_offset);
     return 0;
 }
