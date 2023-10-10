@@ -787,6 +787,99 @@ void table_operations_a_lot_of_insertions_and_deletions() {
     delete_file(TEST_FILE_LOCATION);
 }
 
+void table_operations_updates() {
+    open_file(TEST_FILE_LOCATION);
+
+    init_table_with_test_data();
+
+    // update first row from the second table where int value is 123
+    struct OperationPredicateParameter *predicate_parameter = malloc(sizeof(struct OperationPredicateParameter));
+    strcpy(predicate_parameter->column_name, "test_column1");
+    predicate_parameter->next = NULL;
+    predicate_parameter->predicate_operator = PO_EQUAL;
+    predicate_parameter->value = malloc(sizeof(int64_t));
+    predicate_parameter->value_size = sizeof(int64_t);
+    *((int64_t *) predicate_parameter->value) = 123;
+
+    struct TableField *table2_row1_field3 = malloc(sizeof(struct TableField));
+    table2_row1_field3->size = 4 * 1024;
+    table2_row1_field3->next = NULL;
+    char *table2_row1_field3_value = malloc(4 * 1024);
+    memset(table2_row1_field3_value, 'c', 4 * 1024);
+    table2_row1_field3->value = table2_row1_field3_value;
+
+    struct TableField *table2_row1_field2 = malloc(sizeof(struct TableField));
+    table2_row1_field2->size = sizeof(bool);
+    table2_row1_field2->next = table2_row1_field3;
+    bool *table2_row1_field2_value = malloc(sizeof(bool));
+    *table2_row1_field2_value = false;
+    table2_row1_field2->value = table2_row1_field2_value;
+
+    struct TableField *table2_row1_field1 = malloc(sizeof(struct TableField));
+    table2_row1_field1->size = sizeof(int64_t);
+    table2_row1_field1->next = table2_row1_field2;
+    int64_t *table2_row1_field1_value = malloc(sizeof(int64_t));
+    *table2_row1_field1_value = 999;
+    table2_row1_field1->value = table2_row1_field1_value;
+
+    operation_update("test_table2", predicate_parameter, table2_row1_field1);
+
+    free(predicate_parameter->value);
+    free(predicate_parameter);
+    free(table2_row1_field1->value);
+    free(table2_row1_field1);
+    free(table2_row1_field2->value);
+    free(table2_row1_field2);
+    free(table2_row1_field3->value);
+    free(table2_row1_field3);
+
+    // run select on second table and check that there is no row with int value 123
+
+    struct SelectResultIterator select_result_iterator2 = operation_select("test_table2", NULL);
+    assert(select_result_iterator2.has_element);
+    assert(select_result_iterator2.has_more);
+
+    struct TableField *table2_row2 = get_by_iterator(&select_result_iterator2);
+    assert(table2_row2->size == sizeof(int64_t));
+    assert(table2_row2->next->size == sizeof(bool));
+    assert(table2_row2->next->next->size == 4 * 1024);
+    assert(table2_row2->next->next->next == NULL);
+    int64_t *table2_row2_field1_value2 = (int64_t *) table2_row2->value;
+    assert(*table2_row2_field1_value2 == 999);
+    bool *table2_row2_field2_value2 = (bool *) table2_row2->next->value;
+    assert(*table2_row2_field2_value2 == false);
+    char *expected_string_value = malloc(4 * 1024);
+    memset(expected_string_value, 'c', 4 * 1024);
+    assert(memcmp(table2_row2->next->next->value, expected_string_value, 3 * 1024) == 0);
+    free(expected_string_value);
+
+    free(table2_row2->value);
+    free(table2_row2);
+
+    select_result_iterator2 = get_next(&select_result_iterator2);
+    assert(select_result_iterator2.has_element);
+    assert(!select_result_iterator2.has_more);
+
+    struct TableField *table2_row1 = get_by_iterator(&select_result_iterator2);
+    assert(table2_row1->size == sizeof(int64_t));
+    assert(table2_row1->next->size == sizeof(bool));
+    assert(table2_row1->next->next->size == 2 * 1024);
+    assert(table2_row1->next->next->next == NULL);
+    int64_t *table2_row1_field1_value2 = (int64_t *) table2_row1->value;
+    assert(*table2_row1_field1_value2 == 456);
+    bool *table2_row1_field2_value2 = (bool *) table2_row1->next->value;
+    assert(*table2_row1_field2_value2 == false);
+    expected_string_value = malloc(2 * 1024);
+    memset(expected_string_value, 'b', 2 * 1024);
+    assert(memcmp(table2_row1->next->next->value, expected_string_value, 2 * 1024) == 0);
+
+    free(expected_string_value);
+    free(table2_row1);
+
+    close_file();
+    delete_file(TEST_FILE_LOCATION);
+}
+
 int main() {
     table_operations_simple_insertions();
     print_separator();
@@ -800,6 +893,10 @@ int main() {
     print_separator();
     data_operations_with_deletions();
     print_separator();
+    table_operations_updates();
+    print_separator();
+
+    // long tests
     table_operations_a_lot_of_insertions();
     print_separator();
     table_operations_a_lot_of_insertions_and_deletions();

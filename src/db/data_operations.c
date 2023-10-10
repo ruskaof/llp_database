@@ -497,3 +497,23 @@ int operation_delete(char *table_name, struct OperationPredicateParameter *param
 
     return 0;
 }
+
+int operation_update(char *table_name,
+                     struct OperationPredicateParameter *parameters,
+                     struct TableField *first_table_field) {
+    logger(LL_INFO, __func__, "Updating rows from table %s", table_name);
+
+    int delete_result = operation_delete(table_name, parameters);
+    if (delete_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot update rows from table %s because of deletion error", table_name);
+        return -1;
+    }
+
+    int insert_result = operation_insert(table_name, first_table_field);
+    if (insert_result == -1) {
+        logger(LL_ERROR, __func__, "Cannot update rows from table %s because of insertion error", table_name);
+        return -1;
+    }
+
+    return 0;
+}

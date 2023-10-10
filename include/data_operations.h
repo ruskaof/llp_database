@@ -41,6 +41,10 @@ int operation_truncate(char *table_name);
 
 int operation_delete(char *table_name, struct OperationPredicateParameter *parameters);
 
+int operation_update(char *table_name,
+                     struct OperationPredicateParameter *parameters,
+                     struct TableField *first_table_field);
+
 /**
  *
  * @param table_name The name of the table to update.
