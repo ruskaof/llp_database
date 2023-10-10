@@ -379,28 +379,20 @@ int operation_delete(char *table_name, struct OperationPredicateParameter *param
         ELEMENT_VALUE_OFFSET +
         current_table_data_element_offset);
 
-    if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
-                                    parameters)) {
-        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
-        table_metadata_element->has_rows = current_table_data_element->has_prev_of_table;
-        table_metadata_element->last_row_offset = current_table_data_element->prev_of_table_offset;
-        delete_element(current_table_data_element_offset);
-    }
-
     struct TableDataElement *previous_table_data_element = current_table_data_element;
-    current_table_data_element_offset = previous_table_data_element->prev_of_table_offset;
-    current_table_data_element = (struct TableDataElement *) (
-        (char *) get_file_data_pointer() +
-        ELEMENT_VALUE_OFFSET +
-        current_table_data_element_offset);
 
     while (current_table_data_element->has_prev_of_table) {
-
         if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
                                         parameters)) {
             logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
-            previous_table_data_element->has_prev_of_table = current_table_data_element->has_prev_of_table;
-            previous_table_data_element->prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+
+            if (current_table_data_element_offset == table_metadata_element->last_row_offset) {
+                table_metadata_element->has_rows = current_table_data_element->has_prev_of_table;
+                table_metadata_element->last_row_offset = current_table_data_element->prev_of_table_offset;
+            } else {
+                previous_table_data_element->has_prev_of_table = current_table_data_element->has_prev_of_table;
+                previous_table_data_element->prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+            }
             delete_element(current_table_data_element_offset);
         } else {
             previous_table_data_element = current_table_data_element;
@@ -415,11 +407,16 @@ int operation_delete(char *table_name, struct OperationPredicateParameter *param
 
     if (predicate_result_on_element(current_table_data_element_offset, table_metadata_offset,
                                     parameters)) {
-        previous_table_data_element->has_prev_of_table = false;
+        logger(LL_DEBUG, __func__, "Deleting row at offset %ld", current_table_data_element_offset);
+
+        if (current_table_data_element_offset == table_metadata_element->last_row_offset) {
+            table_metadata_element->has_rows = current_table_data_element->has_prev_of_table;
+            table_metadata_element->last_row_offset = current_table_data_element->prev_of_table_offset;
+        } else {
+            previous_table_data_element->has_prev_of_table = current_table_data_element->has_prev_of_table;
+            previous_table_data_element->prev_of_table_offset = current_table_data_element->prev_of_table_offset;
+        }
         delete_element(current_table_data_element_offset);
-    } else {
-        previous_table_data_element->has_prev_of_table = true;
-        previous_table_data_element->prev_of_table_offset = current_table_data_element_offset;
     }
 
     return 0;
