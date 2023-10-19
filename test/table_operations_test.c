@@ -881,24 +881,24 @@ void table_operations_updates() {
 }
 
 int main() {
-//    table_operations_simple_insertions();
-//    print_separator();
-//    table_operations_simple_deletions();
-//    print_separator();
-//    table_operations_simple_insertions2();
-//    print_separator();
-//    data_operations_simple_insertions();
-//    print_separator();
-//    data_operations_simple_insertions2();
-//    print_separator();
-//    data_operations_with_deletions();
-//    print_separator();
-//    table_operations_updates();
-//    print_separator();
-//
-//    // long tests
-//    table_operations_a_lot_of_insertions();
-//    print_separator();
+    table_operations_simple_insertions();
+    print_separator();
+    table_operations_simple_deletions();
+    print_separator();
+    table_operations_simple_insertions2();
+    print_separator();
+    data_operations_simple_insertions();
+    print_separator();
+    data_operations_simple_insertions2();
+    print_separator();
+    data_operations_with_deletions();
+    print_separator();
+    table_operations_updates();
+    print_separator();
+
+    // long tests
+    table_operations_a_lot_of_insertions();
+    print_separator();
     table_operations_a_lot_of_insertions_and_deletions();
 
     printf("\033[0;32m");

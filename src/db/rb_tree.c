@@ -8,11 +8,11 @@
 
 // rb tree on array of RbElements
 
-uint64_t get_right_child_offset(struct RbElement *elements, uint64_t current_index) {
+uint64_t get_right_child_index(struct RbElement *elements, uint64_t current_index) {
     return current_index * 2 + 2;
 }
 
-uint64_t get_left_child_offset(struct RbElement *elements, uint64_t current_index) {
+uint64_t get_left_child_index(struct RbElement *elements, uint64_t current_index) {
     return current_index * 2 + 1;
 }
 
@@ -21,12 +21,12 @@ uint64_t get_rb_max(struct RbTree *tree) {
         return 0;
     }
 
-    struct RbElement *elements = get_file_data_pointer();
+    struct RbElement *elements = (void *) tree + sizeof(struct RbTree);
 
     uint64_t current_index = 0;
 
-    while (get_right_child_offset(elements, current_index) < tree->elements_count) {
-        current_index = get_right_child_offset(elements, current_index);
+    while (get_right_child_index(elements, current_index) < tree->elements_count) {
+        current_index = get_right_child_index(elements, current_index);
     }
 
     return elements[current_index].offset;
@@ -47,19 +47,19 @@ void insert_rb(struct RbTree *tree, uint64_t offset, uint64_t deleted_size) {
     bool inserted = false;
     while (!inserted) {
         if (deleted_size < elements[current_index].size) {
-            if (get_left_child_offset(elements, current_index) < tree->elements_count) {
-                current_index = get_left_child_offset(elements, current_index);
+            if (get_left_child_index(elements, current_index) < tree->elements_count) {
+                current_index = get_left_child_index(elements, current_index);
             } else {
-                elements[get_left_child_offset(elements, current_index)].offset = offset;
-                elements[get_left_child_offset(elements, current_index)].size = deleted_size;
+                elements[get_left_child_index(elements, current_index)].offset = offset;
+                elements[get_left_child_index(elements, current_index)].size = deleted_size;
                 inserted = true;
             }
         } else {
-            if (get_right_child_offset(elements, current_index) < tree->elements_count) {
-                current_index = get_right_child_offset(elements, current_index);
+            if (get_right_child_index(elements, current_index) < tree->elements_count) {
+                current_index = get_right_child_index(elements, current_index);
             } else {
-                elements[get_right_child_offset(elements, current_index)].offset = offset;
-                elements[get_right_child_offset(elements, current_index)].size = deleted_size;
+                elements[get_right_child_index(elements, current_index)].offset = offset;
+                elements[get_right_child_index(elements, current_index)].size = deleted_size;
                 inserted = true;
             }
         }
@@ -80,14 +80,14 @@ void delete_element_rb(struct RbTree *tree, uint64_t offset) {
     bool deleted = false;
     while (!deleted) {
         if (offset < elements[current_index].offset) {
-            if (get_left_child_offset(elements, current_index) < tree->elements_count) {
-                current_index = get_left_child_offset(elements, current_index);
+            if (get_left_child_index(elements, current_index) < tree->elements_count) {
+                current_index = get_left_child_index(elements, current_index);
             } else {
                 return;
             }
         } else if (offset > elements[current_index].offset) {
-            if (get_right_child_offset(elements, current_index) < tree->elements_count) {
-                current_index = get_right_child_offset(elements, current_index);
+            if (get_right_child_index(elements, current_index) < tree->elements_count) {
+                current_index = get_right_child_index(elements, current_index);
             } else {
                 return;
             }
