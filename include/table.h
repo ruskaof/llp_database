@@ -24,15 +24,13 @@ enum TableDatatype {
 
 struct TableField {
     uint64_t size;
-    struct TableField *next;
     void *value;
 };
 
-void free_table_row(struct TableField *table_field);
-
-void free_table_row_without_values(struct TableField *table_field);
-
-struct TableField *create_table_row(uint64_t first_field_size, void *first_field_value, ...);
+struct TableRow {
+    uint64_t column_count;
+    struct TableField *fields;
+};
 
 struct TableColumn {
     TableColumnSchemaName name;

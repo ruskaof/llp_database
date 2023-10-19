@@ -10,16 +10,8 @@
 
 #include <stdint.h>
 
-int operation_create_table(char *table_name, struct TableColumn *columns, uint64_t columns_count);
+int operation_create_table(TableSchemaName table_name, uint64_t column_count, struct TableColumn *columns);
 
-int operation_inner_join(char *left_table_name,
-                         struct OperationPredicateParameter *left_table_parameters,
-                         char *left_table_column_name,
-                         char *right_table_name,
-                         struct OperationPredicateParameter *right_table_parameters,
-                         char *right_table_column_name,
-                         char *result_table_name);
-
-int operation_drop_table(char *table_name);
+int operation_drop_table(TableSchemaName table_name);
 
 #endif //LLP_DATABASE_TABLE_OPERATIONS_H
