@@ -6,6 +6,7 @@
 #include "file.h"
 
 #include "../utils/logging.h"
+ #include "rb_tree.h"
 
 int
 init_empty_file_with_element(uint64_t element_size, enum ElementType element_type, uint64_t *element_offset) {
@@ -61,8 +62,17 @@ int find_suitable_deleted_element_offset(uint64_t requested_element_size,
         return -1;
     }
 
-    struct ElementHeader *deleted_element_header =
-        (struct ElementHeader *) ((char *) get_file_data_pointer() + file_header->last_deleted_element_offset);
+    struct RbTree *rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() + file_header->rb_tree_offset +
+                                                sizeof(struct ElementHeader));
+
+    if (rb_tree->elements_count == 0) {
+        logger(LL_DEBUG, __func__, "File has no deleted elements.");
+        return -1;
+    }
+
+    uint64_t max_deleted_offset = get_rb_max(rb_tree);
+    struct ElementHeader *deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
+                                                                             max_deleted_offset);
 
     if (deleted_element_header->element_size >= requested_element_size) {
         *suitable_deleted_element_offset = file_header->last_deleted_element_offset;
@@ -79,14 +89,14 @@ void erase_neighbors_data_about_element(void *file_data_pinter, uint64_t element
 
     if (element_header->has_prev_element_of_type) {
         struct ElementHeader *prev_element_of_type_header =
-            (struct ElementHeader *) ((char *) file_data_pinter + element_header->prev_element_of_type_offset);
+                (struct ElementHeader *) ((char *) file_data_pinter + element_header->prev_element_of_type_offset);
         prev_element_of_type_header->has_next_element_of_type = element_header->has_next_element_of_type;
         prev_element_of_type_header->next_element_of_type_offset = element_header->next_element_of_type_offset;
     }
 
     if (element_header->has_next_element_of_type) {
         struct ElementHeader *next_element_of_type_header =
-            (struct ElementHeader *) ((char *) file_data_pinter + element_header->next_element_of_type_offset);
+                (struct ElementHeader *) ((char *) file_data_pinter + element_header->next_element_of_type_offset);
         next_element_of_type_header->has_prev_element_of_type = element_header->has_prev_element_of_type;
         next_element_of_type_header->prev_element_of_type_offset = element_header->prev_element_of_type_offset;
     }
@@ -97,6 +107,13 @@ void erase_neighbors_data_about_element(void *file_data_pinter, uint64_t element
                 file_header->has_deleted_elements = element_header->has_prev_element_of_type;
                 file_header->last_deleted_element_offset = element_header->prev_element_of_type_offset;
             }
+
+            struct RbTree *rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() +
+                                                        ((struct FileHeader *) get_file_data_pointer())->rb_tree_offset +
+                                                        sizeof(struct ElementHeader));
+
+            delete_element_rb(rb_tree, element_offset);
+
             break;
         case ET_TABLE_METADATA:
             if (file_header->last_table_metadata_element_offset == element_offset) {
@@ -132,8 +149,8 @@ void init_new_element_offsets_for_table_metadata(const uint64_t new_element_offs
         allocated_element_header->prev_element_of_type_offset = file_header->last_table_metadata_element_offset;
 
         struct ElementHeader *last_table_metadata_element_header = (struct ElementHeader *) (
-            (char *) get_file_data_pointer() +
-            file_header->last_table_metadata_element_offset);
+                (char *) get_file_data_pointer() +
+                file_header->last_table_metadata_element_offset);
         last_table_metadata_element_header->has_next_element_of_type = true;
         last_table_metadata_element_header->next_element_of_type_offset = new_element_offset;
     } else {
@@ -155,8 +172,8 @@ void init_new_element_offsets_for_table_data(const uint64_t new_element_offset) 
         allocated_element_header->prev_element_of_type_offset = file_header->last_table_data_element_offset;
 
         struct ElementHeader *last_table_data_element_header = (struct ElementHeader *) (
-            (char *) get_file_data_pointer() +
-                                                                                         file_header->last_table_data_element_offset);
+                (char *) get_file_data_pointer() +
+                file_header->last_table_data_element_offset);
         last_table_data_element_header->has_next_element_of_type = true;
         last_table_data_element_header->next_element_of_type_offset = new_element_offset;
     } else {
@@ -180,11 +197,6 @@ void init_new_element_offsets_for_deleted_element(const uint64_t new_element_off
         struct ElementHeader *last_deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
                                                                                       file_header->last_deleted_element_offset);
 
-        while (last_deleted_element_header->element_size > allocated_element_header->element_size && last_deleted_element_header->has_prev_element_of_type) {
-            last_deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
-                                                                    last_deleted_element_header->prev_element_of_type_offset);
-        }
-
         allocated_element_header->has_prev_element_of_type = last_deleted_element_header->has_prev_element_of_type;
         allocated_element_header->prev_element_of_type_offset = last_deleted_element_header->prev_element_of_type_offset;
         last_deleted_element_header->has_next_element_of_type = true;
@@ -197,6 +209,57 @@ void init_new_element_offsets_for_deleted_element(const uint64_t new_element_off
     file_header->last_deleted_element_offset = new_element_offset;
     allocated_element_header->has_next_element_of_type = false;
     allocated_element_header->element_type = ET_DELETED;
+
+    // init for rb tree
+    struct RbTree *rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() + file_header->rb_tree_offset +
+                                                sizeof(struct ElementHeader));
+
+    uint64_t old_rb_tree_offset = file_header->rb_tree_offset;
+
+    if (rb_tree->max_size == rb_tree->elements_count) {
+        uint64_t prev_size = rb_tree->max_size;
+
+        uint64_t new_rb_tree_offset;
+        allocate_element(prev_size * 2 * sizeof(struct RbElement) + sizeof(struct RbTree) + sizeof(struct ElementHeader),ET_RB_TREE, &new_rb_tree_offset);
+
+        struct RbTree *new_rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() + new_rb_tree_offset +
+                                                        sizeof(struct ElementHeader));
+
+        new_rb_tree->elements_count = rb_tree->elements_count;
+        new_rb_tree->max_size = prev_size * 2;
+
+        struct RbElement *rb_elements = (struct RbElement *) ((char *) get_file_data_pointer() +
+                                                              file_header->rb_tree_offset +
+                                                              sizeof(struct ElementHeader) +
+                                                              sizeof(struct RbTree));
+        struct RbElement *new_rb_elements = (struct RbElement *) ((char *) get_file_data_pointer() +
+                                                                  new_rb_tree_offset +
+                                                                  sizeof(struct ElementHeader) +
+                                                                  sizeof(struct RbTree));
+
+        for (uint64_t i = 0; i < rb_tree->elements_count; i++) {
+            new_rb_elements[i].offset = rb_elements[i].offset;
+            new_rb_elements[i].size = rb_elements[i].size;
+        }
+
+        delete_element(old_rb_tree_offset);
+        file_header->rb_tree_offset = new_rb_tree_offset;
+        rb_tree = new_rb_tree;
+    }
+
+    insert_rb(rb_tree, new_element_offset, allocated_element_header->element_size);
+}
+
+void init_new_element_offsets_for_rb_tree(const uint64_t offset) {
+    struct ElementHeader *rb_tree_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
+                                                                     offset);
+    rb_tree_header->element_type = ET_RB_TREE;
+    rb_tree_header->element_size = sizeof(struct RbTree) + sizeof(struct RbElement) * RB_TREE_ALLOCATED_SIZE;
+    rb_tree_header->has_prev_element_of_type = false;
+    rb_tree_header->has_next_element_of_type = false;
+
+    struct FileHeader *file_header = (struct FileHeader *) get_file_data_pointer();
+    file_header->rb_tree_offset = offset;
 }
 
 void init_new_element_offsets(enum ElementType element_type, const uint64_t element_offset) {
@@ -209,6 +272,9 @@ void init_new_element_offsets(enum ElementType element_type, const uint64_t elem
             break;
         case ET_TABLE_DATA:
             init_new_element_offsets_for_table_data(element_offset);
+            break;
+        case ET_RB_TREE:
+            init_new_element_offsets_for_rb_tree(element_offset);
             break;
     }
 }
@@ -235,6 +301,12 @@ void merge_deleted_with_next_if_can(uint64_t element_offset) {
 
 void prepare_deleted_element_for_allocation(uint64_t deleted_element_offset,
                                             uint64_t requested_element_size) {
+
+    struct RbTree *rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() +
+                                                ((struct FileHeader *) get_file_data_pointer())->rb_tree_offset +
+                                                sizeof(struct ElementHeader));
+
+    delete_element_rb(rb_tree, deleted_element_offset);
     erase_neighbors_data_about_element(get_file_data_pointer(), deleted_element_offset);
 
     struct ElementHeader *deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
@@ -281,13 +353,29 @@ int allocate_element(uint64_t requested_element_size, enum ElementType element_t
     }
 
     if (get_file_size() == 0) {
-        return init_empty_file_with_element(requested_element_size, element_type, element_offset);
+        init_empty_file_with_element(requested_element_size, element_type, element_offset);
+
+        uint64_t rb_tree_offset;
+        allocate_element(RB_TREE_ALLOCATED_SIZE * sizeof(struct RbElement) + sizeof(struct RbTree) +
+                         sizeof(struct ElementHeader), ET_RB_TREE, &rb_tree_offset);
+        init_new_element_offsets(ET_RB_TREE, rb_tree_offset);
+
+
+        struct RbTree *rb_tree = (struct RbTree *) ((char *) get_file_data_pointer() + rb_tree_offset +
+                                                    sizeof(struct ElementHeader));
+        rb_tree->elements_count = 0;
+        rb_tree->max_size = RB_TREE_ALLOCATED_SIZE;
+
+        struct FileHeader *file_header = (struct FileHeader *) get_file_data_pointer();
+        file_header->last_element_offset = rb_tree_offset;
+
+        return 0;
     }
 
     uint64_t suitable_deleted_element_offset;
 
     int find_suitable_deleted_element_offset_result =
-        find_suitable_deleted_element_offset(requested_element_size, &suitable_deleted_element_offset);
+            find_suitable_deleted_element_offset(requested_element_size, &suitable_deleted_element_offset);
 
     struct FileHeader *file_header = (struct FileHeader *) get_file_data_pointer();
 
@@ -384,7 +472,10 @@ int delete_element(uint64_t element_offset) {
             }
 
             prev_element_header->element_size += element_header->element_size;
+            uint64_t prev_element_offset = element_header->prev_element_offset;
             erase_neighbors_data_about_element(get_file_data_pointer(), element_offset);
+            erase_neighbors_data_about_element(get_file_data_pointer(), prev_element_offset);
+            init_new_element_offsets(ET_DELETED, prev_element_offset);
         } else {
             init_new_element_offsets(ET_DELETED, element_offset);
         }

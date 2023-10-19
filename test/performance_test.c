@@ -22,6 +22,15 @@
 
 #endif
 
+#include <sys/time.h>
+
+uint64_t get_current_time_millis() {
+    struct timeval te;
+    gettimeofday(&te, NULL);
+    uint64_t milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+    return milliseconds;
+}
+
 void insertion_performance_tests(uint32_t n) {
     init_db(TEST_FILE_LOCATION);
 
@@ -42,58 +51,65 @@ void insertion_performance_tests(uint32_t n) {
     }
 
     for (uint32_t i = 0; i < n; i++) {
-        struct TableField *fifth_table_field = malloc(sizeof(struct TableField));
-        fifth_table_field->size = sizeof(double);
-        fifth_table_field->value = malloc(sizeof(double));
-        *(double *) fifth_table_field->value = i + 0.5;
-        fifth_table_field->next = NULL;
+        uint64_t time_mills = get_current_time_millis();
 
-        struct TableField *fourth_table_field = malloc(sizeof(struct TableField));
-        fourth_table_field->size = sizeof(bool);
-        fourth_table_field->value = malloc(sizeof(bool));
-        *(bool *) fourth_table_field->value = i % 2 == 0;
-        fourth_table_field->next = fifth_table_field;
+        for (uint32_t j = 0; j < i; j++) {
+            struct TableField *fifth_table_field = malloc(sizeof(struct TableField));
+            fifth_table_field->size = sizeof(double);
+            fifth_table_field->value = malloc(sizeof(double));
+            *(double *) fifth_table_field->value = i + 0.5;
+            fifth_table_field->next = NULL;
 
-        struct TableField *third_table_field = malloc(sizeof(struct TableField));
-        third_table_field->size = sizeof(int64_t);
-        third_table_field->value = malloc(sizeof(int64_t));
-        *(int64_t *) third_table_field->value = i;
-        third_table_field->next = fourth_table_field;
+            struct TableField *fourth_table_field = malloc(sizeof(struct TableField));
+            fourth_table_field->size = sizeof(bool);
+            fourth_table_field->value = malloc(sizeof(bool));
+            *(bool *) fourth_table_field->value = i % 2 == 0;
+            fourth_table_field->next = fifth_table_field;
 
-        struct TableField *second_table_field = malloc(sizeof(struct TableField));
-        second_table_field->size = 1024 * 1024; // 1 MB
-        second_table_field->value = malloc(second_table_field->size);
-        memset(second_table_field->value, 'a', second_table_field->size);
-        second_table_field->next = third_table_field;
+            struct TableField *third_table_field = malloc(sizeof(struct TableField));
+            third_table_field->size = sizeof(int64_t);
+            third_table_field->value = malloc(sizeof(int64_t));
+            *(int64_t *) third_table_field->value = i;
+            third_table_field->next = fourth_table_field;
 
-        struct TableField *first_table_field = malloc(sizeof(struct TableField));
-        first_table_field->size = sizeof(int64_t);
-        first_table_field->value = malloc(sizeof(int64_t));
-        *(int64_t *) first_table_field->value = i;
-        first_table_field->next = second_table_field;
+            struct TableField *second_table_field = malloc(sizeof(struct TableField));
+            second_table_field->size = 1024 * 1024; // 1 MB
+            second_table_field->value = malloc(second_table_field->size);
+            memset(second_table_field->value, 'a', second_table_field->size);
+            second_table_field->next = third_table_field;
 
-        int insert_result = operation_insert(table_name, first_table_field);
-        if (insert_result == -1) {
-            printf("Cannot insert row\n");
-            return;
+            struct TableField *first_table_field = malloc(sizeof(struct TableField));
+            first_table_field->size = sizeof(int64_t);
+            first_table_field->value = malloc(sizeof(int64_t));
+            *(int64_t *) first_table_field->value = i;
+            first_table_field->next = second_table_field;
+
+            int insert_result = operation_insert(table_name, first_table_field);
+            if (insert_result == -1) {
+                printf("Cannot insert row\n");
+                return;
+            }
+
+            free(first_table_field->value);
+            free(first_table_field);
+            free(second_table_field->value);
+            free(second_table_field);
+            free(third_table_field->value);
+            free(third_table_field);
+            free(fourth_table_field->value);
+            free(fourth_table_field);
+            free(fifth_table_field->value);
+            free(fifth_table_field);
         }
 
-        free(first_table_field->value);
-        free(first_table_field);
-        free(second_table_field->value);
-        free(second_table_field);
-        free(third_table_field->value);
-        free(third_table_field);
-        free(fourth_table_field->value);
-        free(fourth_table_field);
-        free(fifth_table_field->value);
-        free(fifth_table_field);
+        printf("Insertion of %d rows was successful. Time: %ld\n", i, get_current_time_millis() - time_mills);
+        operation_truncate(table_name);
     }
 
     printf("Insertion of %d rows was successful.\n", n);
 
     close_db();
-    //delete_db_file(TEST_FILE_LOCATION);
+    delete_db_file(TEST_FILE_LOCATION);
 }
 
 void update_performance_tests(uint32_t n) {
