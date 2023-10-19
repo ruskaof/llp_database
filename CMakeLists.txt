@@ -22,6 +22,8 @@ add_library(llp_database
         src/db/table.c
         src/db/comparator.c
         src/db/comparator.h
+        src/db/rb_tree.c
+        src/db/rb_tree.h
 )
 
 add_executable(element_allocator_test test/element_allocator_test.c
@@ -43,6 +45,8 @@ add_executable(element_allocator_test test/element_allocator_test.c
         src/db/table.c
         src/db/comparator.c
         src/db/comparator.h
+        src/db/rb_tree.c
+        src/db/rb_tree.h
 )
 
 add_executable(table_operations_test test/table_operations_test.c
@@ -64,6 +68,8 @@ add_executable(table_operations_test test/table_operations_test.c
         src/db/table.c
         src/db/comparator.c
         src/db/comparator.h
+        src/db/rb_tree.c
+        src/db/rb_tree.h
 )
 
 add_executable(join_test test/join_test.c
@@ -85,6 +91,8 @@ add_executable(join_test test/join_test.c
         src/db/table.c
         src/db/comparator.c
         src/db/comparator.h
+        src/db/rb_tree.c
+        src/db/rb_tree.h
 )
 
 add_executable(performance_test test/performance_test.c
@@ -106,4 +114,6 @@ add_executable(performance_test test/performance_test.c
         src/db/table.c
         src/db/comparator.c
         src/db/comparator.h
+        src/db/rb_tree.c
+        src/db/rb_tree.h
 )

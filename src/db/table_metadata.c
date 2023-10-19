@@ -21,7 +21,7 @@ int find_table_metadata_offset(char *table_name, uint64_t *table_metadata_offset
     }
 
     if (!file_header->has_table_metadata_elements) {
-        logger(LL_ERROR, __func__, "Cannot find table metadata offset in file without table metadata elements");
+        logger(LL_DEBUG, __func__, "Cannot find table metadata offset in file without table metadata elements");
         return -1;
     }
 

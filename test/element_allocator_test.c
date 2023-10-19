@@ -470,7 +470,8 @@ void allocator_test_on_merging_deleted2() {
     delete_db_file(TEST_FILE_LOCATION);
 }
 
-
+// the tests are not valid and should be fixed
+// after the new fast insert using rb tree is implemented
 int main() {
     allocator_test_single_type();
     print_separator();

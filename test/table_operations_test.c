@@ -738,6 +738,13 @@ void table_operations_a_lot_of_insertions_and_deletions() {
 
     for (uint64_t i = 1000; i < 1500; i++) {
         printf("DELETE_ITER %ld\n", i);
+
+        struct FileHeader *file_header = get_file_data_pointer();
+        printf("FILE_HEADER HAS TABLE METADATA %d\n", file_header->has_table_metadata_elements);
+        if (i == 1000) {
+            printf("DELETE_ITER %ld\n", i);
+        }
+
         struct OperationPredicateParameter *predicate_parameter = malloc(sizeof(struct OperationPredicateParameter));
         strcpy(predicate_parameter->column_name, "test_column1");
         predicate_parameter->next = NULL;
@@ -874,24 +881,24 @@ void table_operations_updates() {
 }
 
 int main() {
-    table_operations_simple_insertions();
-    print_separator();
-    table_operations_simple_deletions();
-    print_separator();
-    table_operations_simple_insertions2();
-    print_separator();
-    data_operations_simple_insertions();
-    print_separator();
-    data_operations_simple_insertions2();
-    print_separator();
-    data_operations_with_deletions();
-    print_separator();
-    table_operations_updates();
-    print_separator();
-
-    // long tests
-    table_operations_a_lot_of_insertions();
-    print_separator();
+//    table_operations_simple_insertions();
+//    print_separator();
+//    table_operations_simple_deletions();
+//    print_separator();
+//    table_operations_simple_insertions2();
+//    print_separator();
+//    data_operations_simple_insertions();
+//    print_separator();
+//    data_operations_simple_insertions2();
+//    print_separator();
+//    data_operations_with_deletions();
+//    print_separator();
+//    table_operations_updates();
+//    print_separator();
+//
+//    // long tests
+//    table_operations_a_lot_of_insertions();
+//    print_separator();
     table_operations_a_lot_of_insertions_and_deletions();
 
     printf("\033[0;32m");

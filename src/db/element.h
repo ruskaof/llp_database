@@ -20,6 +20,7 @@ struct FileHeader {
     bool has_table_data_elements;
     uint64_t last_table_data_element_offset;
     uint64_t last_element_offset;
+    uint64_t rb_tree_offset;
 };
 
 #define FIRST_ELEMENT_OFFSET sizeof(struct FileHeader)
@@ -27,7 +28,8 @@ struct FileHeader {
 enum ElementType {
     ET_DELETED,
     ET_TABLE_METADATA,
-    ET_TABLE_DATA
+    ET_TABLE_DATA,
+    ET_RB_TREE
 };
 
 struct ElementHeader {
