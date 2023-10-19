@@ -69,16 +69,6 @@ int find_suitable_deleted_element_offset(uint64_t requested_element_size,
         return 0;
     }
 
-    while (deleted_element_header->has_prev_element_of_type) {
-        deleted_element_header =
-            (struct ElementHeader *) ((char *) get_file_data_pointer() +
-                                      deleted_element_header->prev_element_of_type_offset);
-        if (deleted_element_header->element_size >= requested_element_size) {
-            *suitable_deleted_element_offset = deleted_element_header->prev_element_of_type_offset;
-            return 0;
-        }
-    }
-
     logger(LL_DEBUG, __func__, "Could not find suitable deleted element.");
     return -1;
 }
@@ -189,6 +179,14 @@ void init_new_element_offsets_for_deleted_element(const uint64_t new_element_off
 
         struct ElementHeader *last_deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
                                                                                       file_header->last_deleted_element_offset);
+
+        while (last_deleted_element_header->element_size > allocated_element_header->element_size && last_deleted_element_header->has_prev_element_of_type) {
+            last_deleted_element_header = (struct ElementHeader *) ((char *) get_file_data_pointer() +
+                                                                    last_deleted_element_header->prev_element_of_type_offset);
+        }
+
+        allocated_element_header->has_prev_element_of_type = last_deleted_element_header->has_prev_element_of_type;
+        allocated_element_header->prev_element_of_type_offset = last_deleted_element_header->prev_element_of_type_offset;
         last_deleted_element_header->has_next_element_of_type = true;
         last_deleted_element_header->next_element_of_type_offset = new_element_offset;
     } else {

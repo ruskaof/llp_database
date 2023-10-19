@@ -93,7 +93,7 @@ void insertion_performance_tests(uint32_t n) {
     printf("Insertion of %d rows was successful.\n", n);
 
     close_db();
-    delete_db_file(TEST_FILE_LOCATION);
+    //delete_db_file(TEST_FILE_LOCATION);
 }
 
 void update_performance_tests(uint32_t n) {
